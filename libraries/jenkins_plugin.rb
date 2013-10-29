@@ -18,7 +18,7 @@
 #
 
 class Chef
-  class Resource::JenkinsPlugin < LWRPBase
+  class Resource::JenkinsPlugin < Resource::LWRPBase
     self.resource_name = :jenkins_plugin
     default_action(:install)
     actions(:remove)
@@ -33,7 +33,7 @@ class Chef
 
   end
 
-  class Provider::JenkinsPlugin < LWRPBase
+  class Provider::JenkinsPlugin < Provider::LWRPBase
     def whyrun_supported?
       true
     end

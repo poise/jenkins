@@ -21,9 +21,9 @@
 # limitations under the License.
 #
 
+# Default values for jenkins resource parameters
 default['jenkins']['server']['update_url'] = 'https://updates.jenkins-ci.org/update-center.json'
 default['jenkins']['server']['war_url'] = 'http://updates.jenkins-ci.org/download/war/%s/jenkins.war'
-default['jenkins']['server']['home'] = '/var/lib/jenkins'
 default['jenkins']['server']['log_dir'] = '/var/log/jenkins'
 default['jenkins']['server']['service_name'] = 'jenkins'
 default['jenkins']['server']['user'] = 'jenkins'
@@ -35,5 +35,10 @@ default['jenkins']['server']['log_dir_group'] = default['jenkins']['server']['us
 default['jenkins']['server']['dir_permissions'] = '755'
 default['jenkins']['server']['ssh_dir_permissions'] = '700'
 default['jenkins']['server']['log_dir_permissions'] = '755'
+default['jenkins']['server']['port'] = 8080
+default['jenkins']['server']['host'] = node['fqdn']
+default['jenkins']['server']['url'] = nil
 
+# Values for the jenkins::server recipe
+default['jenkins']['server']['home'] = '/var/lib/jenkins'
 default['jenkins']['server']['install_method'] = 'war'

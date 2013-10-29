@@ -26,46 +26,79 @@
 
 require 'open-uri'
 
+require 'chef/dsl/recipe'
+require 'chef/mixin/shell_out'
+
 class Chef
-  class Resource::Jenkins < LWRPBase
+  class Resource::Jenkins < Resource::LWRPBase
+    include Chef::DSL::Recipe
     self.resource_name = :jenkins
     default_action(:install)
-    actions(:uninstall)
+    actions(:uninstall, :wait_until_up)
 
     attribute(:path, kind_of: String, name_attribute: true)
-    attribute(:version, kind_of: String, default: 'latest')
-    attribute(:war_url, kind_of: String)
-    attribute(:log_dir, kind_of: String)
-    attribute(:service_name, kind_of: String)
-    attribute(:user, kind_of: String)
+    def version(arg=nil)
+      # If we are reading, grab the actual latest version
+      if !arg && (!@version || @version == 'latest')
+        @version = self.update_center['core']['version']
+      end
+      set_or_return(:version, arg, kind_of: String, default: 'latest')
+    end
+    def war_url(arg=nil)
+      val = set_or_return(:war_url, arg, kind_of: String, default: node['jenkins']['server']['war_url'])
+      # Interpolate the version if needed
+      if !arg && val
+        @war_url = (val %= self.version)
+      end
+      val
+    end
+    def log_dir(arg=nil)
+      set_or_return(:log_dir, arg, kind_of: String, default: node['jenkins']['server']['log_dir'])
+    end
+    def service_name(arg=nil)
+      set_or_return(:service_name, arg, kind_of: String, default: node['jenkins']['server']['service_name'])
+    end
+    def user(arg=nil)
+      set_or_return(:user, arg, kind_of: String, default: node['jenkins']['server']['user'])
+    end
     attribute(:group, kind_of: String)
     attribute(:home_dir_group, kind_of: String)
     attribute(:plugins_dir_group, kind_of: String)
     attribute(:ssh_dir_group, kind_of: String)
     attribute(:log_dir_group, kind_of: String)
-    attribute(:dir_permissions, kind_of: String)
-    attribute(:ssh_dir_permissions, kind_of: String)
+    def dir_permissions(arg=nil)
+      set_or_return(:dir_permissions, arg, kind_of: String, default: node['jenkins']['server']['dir_permissions'])
+    end
+    def ssh_dir_permissions(arg=nil)
+      set_or_return(:ssh_dir_permissions, arg, kind_of: String, default: node['jenkins']['server']['ssh_dir_permissions'])
+    end
     attribute(:log_dir_permissions, kind_of: String)
+    def host(arg=nil)
+      set_or_return(:host, arg, kind_of: String, default: node['jenkins']['server']['host'])
+    end
+    def port(arg=nil)
+      set_or_return(:port, arg, kind_of: [String, Integer], default: node['jenkins']['server']['port'])
+    end
+    def url(arg=nil)
+      set_or_return(:url, arg, kind_of: String, default: node['jenkins']['server']['url'] || "http://#{self.host}:#{self.port}")
+    end
+
+    def war_path
+      ::File.join(self.path, "jenkins-#{self.version}.war")
+    end
+
+    def initialize(*args)
+      super
+      @subresources = Poise::SubResourceCollection.new(run_context && run_context.resource_collection)
+    end
 
     def after_create
-      # Initialize defaults from node attributes
-      %w{war_url log_dir service_name user dir_permissions ssh_dir_permissions}.each do |key|
-        self.send(key, node['jenkins']['server'][key]) unless self.send(key)
+      run_context.resource_collection.each do |res|
+        if res.is_a?(self.class) && res.service_name == self.service_name
+          raise "#{res} already uses service name #{self.service_name}"
+        end
       end
-      self.version(self.update_center['core']['version']) if self.version == 'latest'
-      self.war_url(self.war_url % self.version) # Insert the version if needed
-
-      self.group(node['jenkins']['server']['group']) unless self.group
-      # TODO scan through the resource collection and ensure service_name is unique
       @subresources.each{|r| self.run_context.resource_collection.insert(r)} if @subresources
-    end
-
-    def plugin(name, &block)
-      _subresource(Chef::Resource::JenkinsPlugin, name, &block)
-    end
-
-    def job(name, &block)
-      _subresource(Chef::Resource::JenkinsJob, name, &block)
     end
 
     def update_center
@@ -78,29 +111,24 @@ class Chef
       end
     end
 
-    private
-
-    # TODO Fix ordering, they have to go after the current resource, can abuse after_created
-    def _subresource(resource_class, name, &block)
-      # From chef/dsl/recipe.rb
-      resource = resource_class.new(name, self.run_context)
-      resource.source_line = caller[1]
-      resource.load_prior_resource
-      resource.cookbook_name = self.cookbook_name
-      resource.recipe_name = self.recipe_name
-      resource.parent = self
-      # Evaluate resource attribute DSL
-      resource.instance_eval(&block) if block
-      # Run optional resource hook
-      resource.after_created
-      # Store the resource to be inserted later
-      (@subresources ||= []) << resource
-      resource
+    def method_missing(method_symbol, *args, &block)
+      method_symbol = :"jenkins_#{method_symbol}"
+      captive_run_context = run_context.dup
+      captive_run_context.resource_collection = @subresources
+      begin
+        original_run_context, @run_context = @run_context, captive_run_context
+        super(method_symbol, *args, &block)
+      ensure
+        @run_context = original_run_context
+      end
     end
 
   end
 
-  class Provider::Jenkins < LWRPBase
+  class Provider::Jenkins < Provider::LWRPBase
+    include Chef::Mixin::ShellOut
+    include Poise::Provider
+
     def initialize(*args)
       super
       initialize_resource_defaults
@@ -111,19 +139,43 @@ class Chef
     end
 
     def action_install
-      create_home_dir
-      create_plugins_dir
-      create_log_dir
-      create_ssh_dir
-      install_jenkins
-      configure_service
+      include_recipe 'java'
+      notifying_block do
+        create_group
+        create_user
+        create_home_dir
+        create_plugins_dir
+        create_log_dir
+        create_ssh_dir
+        install_jenkins
+        configure_service
+      end
+      action_wait_until_up
     end
 
     def action_uninstall
-      remove_home_dir
-      remove_log_dir
-      uninstall_jenkins
-      remove_service
+      notifying_block do
+        remove_service
+        uninstall_jenkins
+        remove_log_dir
+        remove_home_dir
+        remove_user
+        remove_group
+      end
+    end
+
+    def action_wait_until_up
+      Chef::Log.info "Waiting until Jenkins is listening on port #{node['jenkins']['server']['port']}"
+      until service_listening?
+        sleep 1
+        Chef::Log.debug('.')
+      end
+
+      Chef::Log.info 'Waiting until the Jenkins API is responding'
+      until endpoint_responding?
+        sleep 1
+        Chef::Log.debug('.')
+      end
     end
 
     private
@@ -134,112 +186,236 @@ class Chef
       end
     end
 
+    def create_group
+      group new_resource.group do
+        system true
+      end if new_resource.group
+    end
+
+    def create_user
+      user new_resource.user do
+        comment "Jenkins service user for #{new_resource.path}"
+        gid new_resource.group if new_resource.group
+        system true
+        shell '/bin/false'
+        home new_resource.path
+      end
+    end
+
     def create_home_dir
-      r = Chef::Resource::Directory.new(@new_resource.path, @run_context)
-      r.owner(@new_resource.user)
-      r.group(@new_resource.home_dir_group)
-      r.mode(@new_resource.dir_permissions)
-      r.run_action(:create)
-      updated_by_last_action(true) if r.updated?
-      r
+      directory new_resource.path do
+        owner new_resource.user
+        group new_resource.home_dir_group
+        mode new_resource.dir_permissions
+      end
     end
 
     def create_plugins_dir
-      r = Chef::Resource::Directory.new(::File.join(@new_resource.path, 'plugins'), @run_context)
-      r.owner(@new_resource.user)
-      r.group(@new_resource.plugins_dir_group)
-      r.mode(@new_resource.dir_permissions)
-      r.run_action(:create)
-      updated_by_last_action(true) if r.updated?
-      r
+      directory ::File.join(new_resource.path, 'plugins') do
+        owner new_resource.user
+        group new_resource.plugins_dir_group
+        mode new_resource.dir_permissions
+      end
     end
 
     def create_log_dir
-      r = Chef::Resource::Directory.new(@new_resource.log_dir, @run_context)
-      r.owner(@new_resource.user)
-      r.group(@new_resource.log_dir_group)
-      r.mode(@new_resource.log_dir_permissions)
-      r.run_action(:create)
-      updated_by_last_action(true) if r.updated?
-      r
+      directory new_resource.log_dir do
+        owner new_resource.user
+        group new_resource.log_dir_group
+        mode new_resource.log_dir_permissions
+      end
     end
 
     def create_ssh_dir
-      r = Chef::Resource::Directory.new(::File.join(@new_resource.path, '.ssh'), @run_context)
-      r.owner(@new_resource.user)
-      r.group(@new_resource.ssh_dir_group)
-      r.mode(@new_resource.ssh_dir_permissions)
-      r.run_action(:create)
-      updated_by_last_action(true) if r.updated?
-      r
+      directory ::File.join(new_resource.path, '.ssh') do
+        owner new_resource.user
+        group new_resource.ssh_dir_group
+        mode new_resource.ssh_dir_permissions
+      end
     end
 
     def install_jenkins
-      r = Chef::Resource::RemoteFile.new("#{self.new_resource.path}/jenkins-#{self.new_resource.version}.war", self.run_context)
-      r.source(self.new_resource.war_url)
-      r.owner(self.new_resource.user)
-      r.group(self.new_resource.group)
-      r.mode('644')
-      r.run_action(:create)
-      updated_by_last_action(true) if r.updated?
-      r
+      remote_file new_resource.war_path do
+        source new_resource.war_url
+        owner new_resource.user
+        group new_resource.group
+        mode '644'
+      end
+    end
+
+    def generate_ssh_key
+      ssh_key_path = ::File.join(new_resource.path, '.ssh', 'id_rsa')
+      execute "ssh-keygen -f #{ssh_key_path} -N ''" do
+        user new_resource.user
+        group new_resource.ssh_dir_group
+        not_if { ::File.exists?(ssh_key_path) }
+      end
+
+      ruby_block 'store_server_ssh_pubkey' do
+        block do
+          node.set['jenkins']['server']['pubkey'] = IO.read(ssh_key_path)
+        end
+      end
+    end
+
+    def service_resource
+      include_recipe 'runit'
+
+      @service_resource ||= runit_service new_resource.service_name do
+        options new_resource: new_resource
+      end
     end
 
     def configure_service
+      service_resource
+    end
+
+    def remove_group
+      # TODO
+    end
+
+    def remove_user
+      # TODO
     end
 
     def remove_home_dir
-      r = Chef::Resource::Directory.new(@new_resource.path, @run_context)
-      r.run_action(:remove)
-      updated_by_last_action(true) if r.updated?
-      r
+      directory new_resource.path do
+        action :remove
+      end
     end
 
     def remove_log_dir
-      r = Chef::Resource::Directory.new(@new_resource.log_dir, @run_context)
-      r.run_action(:remove)
-      updated_by_last_action(true) if r.updated?
-      r
+      directory new_resource.log_dir do
+        action :remove
+      end
     end
 
     def uninstall_jenkins
-      r = Chef::Resource::File.new("#{self.new_resource.path}/jenkins-#{self.new_resource.version}.war", self.run_context)
-      r.run_action(:delete)
-      updated_by_last_action(true) if r.updated?
-      r
     end
 
     def remove_service
+      # TODO
     end
 
+    # Helpers used to check if Jenkins is available
+    def service_listening?
+      cmd = shell_out!('netstat -lnt')
+      cmd.stdout.each_line.select do |l|
+        l.split[3] =~ /#{new_resource.port}/
+      end.any?
+    end
 
+    def endpoint_responding?
+      url = "#{new_resource.url}/api/json"
+      response = Chef::REST::RESTRequest.new(:GET, URI.parse(url), nil).call
+      if response.kind_of?(Net::HTTPSuccess) ||
+            response.kind_of?(Net::HTTPOK) ||
+            response.kind_of?(Net::HTTPRedirection) ||
+            response.kind_of?(Net::HTTPForbidden)
+        Chef::Log.debug("GET to #{url} successful")
+        return true
+      else
+        Chef::Log.debug("GET to #{url} returned #{response.code} / #{response.class}")
+        return false
+      end
+    rescue EOFError, Errno::ECONNREFUSED
+      Chef::Log.debug("GET to #{url} failed with connection refused")
+      return false
+    end
 
     # Provider subclass to implement package-based installs
     class Package < Jenkins
       private
       def initialize_resource_defaults
-        values = case node['platform_family']
-        when 'debian'
-          {
-            log_dir_permissions: '755',
-            home_dir_group: 'adm',
-            log_dir_group: 'adm',
-            ssh_dir_group: 'nogroup',
-          }
-        when 'rhel'
-          {
-            group: @new_resource.user,
-            log_dir_permissions: '750',
-            home_dir_group: @new_resource.user,
-            log_dir_group: @new_resource.user,
-            ssh_dir_group: @new_resource.user,
-          }
-        end
-        return super unless values # As good as any other defaults I suppose
-        values.each do |key|
+        resource_defaults.each do |key, value|
           @new_resource.send(key, value) unless @new_resource.send(key)
         end
       end
+
+      def configure_repository
+        # Overridden in subclasses
+      end
+
+      def install_jenkins
+        configure_repository
+        package 'jenkins' do
+          version new_resource.version
+        end
+      end
+
+      def uninstall_jenkins
+        package 'jenkins' do
+          action :remove
+        end
+      end
+
+      def configure_service
+        service_resource.action [:start, :enable]
+      end
+
+      def remove_service
+        service_resource.action [:stop, :disable]
+      end
+
+      def service_resource
+        @service_resource ||= service new_resource.service_name do
+          supports :status => true, :restart => true, :reload => true
+          action :nothing
+        end
+      end
+
+    end
+
+    class AptPackage < Package
+      def resource_defaults
+        {
+          log_dir_permissions: '755',
+          home_dir_group: 'adm',
+          log_dir_group: 'adm',
+          ssh_dir_group: 'nogroup',
+        }
+      end
+
+      def configure_repository
+        include_recipe 'apt'
+
+        apt_repository 'jenkins' do
+          uri 'http://pkg.jenkins-ci.org/debian'
+          distribution 'binary/'
+          components ['']
+          key 'http://pkg.jenkins-ci.org/debian/jenkins-ci.org.key'
+          action :add
+        end
+      end
+
+    end
+
+    class YumPackage < Package
+      def resource_defaults
+        {
+          group: new_resource.user,
+          log_dir_permissions: '750',
+          home_dir_group: new_resource.user,
+          log_dir_group: new_resource.user,
+          ssh_dir_group: new_resource.user,
+        }
+      end
+
+      def configure_repository
+        include_recipe 'yum'
+
+        yum_key 'RPM-GPG-KEY-jenkins-ci' do
+          url 'http://pkg.jenkins-ci.org/redhat/jenkins-ci.org.key'
+          action :add
+        end
+
+        yum_repository 'jenkins-ci' do
+          url 'http://pkg.jenkins-ci.org/redhat'
+          key 'RPM-GPG-KEY-jenkins-ci'
+          action :add
+        end
+      end
+
     end
 
   end

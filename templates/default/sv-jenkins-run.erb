@@ -1,0 +1,10 @@
+#!/bin/sh
+exec 2>&1
+cd <%= @options[:new_resource].path %>
+touch jenkins.start
+exec chpst -u <%= @options[:new_resource].user %> -U <%= @options[:new_resource].user %> \
+  env HOME=<%= @options[:new_resource].path %> \
+  JENKINS_HOME=<%= @options[:new_resource].path %> \
+  java <%= node['jenkins']['server']['jvm_options'] %> -jar <%= @options[:new_resource].war_path %> \
+  -Xloggc:<%= @options[:new_resource].log_dir %>/gclog.log \
+  --httpPort=<%= @options[:new_resource].port %>
