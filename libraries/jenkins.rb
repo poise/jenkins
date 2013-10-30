@@ -31,6 +31,7 @@ require 'chef/mixin/shell_out'
 
 class Chef
   class Resource::Jenkins < Resource::LWRPBase
+    include Poise::Resource
     include Chef::DSL::Recipe
     self.resource_name = :jenkins
     default_action(:install)
@@ -52,40 +53,20 @@ class Chef
       end
       val
     end
-    def log_dir(arg=nil)
-      set_or_return(:log_dir, arg, kind_of: String, default: node['jenkins']['server']['log_dir'])
-    end
-    def service_name(arg=nil)
-      set_or_return(:service_name, arg, kind_of: String, default: node['jenkins']['server']['service_name'])
-    end
-    def user(arg=nil)
-      set_or_return(:user, arg, kind_of: String, default: node['jenkins']['server']['user'])
-    end
+    attribute(:log_dir, kind_of: String, default: lazy { node['jenkins']['server']['log_dir'] })
+    attribute(:service_name, kind_of: String, default: lazy { node['jenkins']['server']['service_name'] })
+    attribute(:user, kind_of: String, default: lazy { node['jenkins']['server']['user'] })
     attribute(:group, kind_of: String)
     attribute(:home_dir_group, kind_of: String)
     attribute(:plugins_dir_group, kind_of: String)
     attribute(:ssh_dir_group, kind_of: String)
     attribute(:log_dir_group, kind_of: String)
-    def dir_permissions(arg=nil)
-      set_or_return(:dir_permissions, arg, kind_of: String, default: node['jenkins']['server']['dir_permissions'])
-    end
-    def ssh_dir_permissions(arg=nil)
-      set_or_return(:ssh_dir_permissions, arg, kind_of: String, default: node['jenkins']['server']['ssh_dir_permissions'])
-    end
+    attribute(:dir_permissions, kind_of: String, default: lazy { node['jenkins']['server']['dir_permissions'] })
+    attribute(:ssh_dir_permissions, kind_of: String, default: lazy { node['jenkins']['server']['ssh_dir_permissions'] })
     attribute(:log_dir_permissions, kind_of: String)
-    def host(arg=nil)
-      set_or_return(:host, arg, kind_of: String, default: node['jenkins']['server']['host'])
-    end
-    def port(arg=nil)
-      set_or_return(:port, arg, kind_of: [String, Integer], default: node['jenkins']['server']['port'])
-    end
-    def url(arg=nil)
-      set_or_return(:url, arg, kind_of: String, default: node['jenkins']['server']['url'] || "http://#{self.host}:#{self.port}")
-    end
-
-    def war_path
-      ::File.join(self.path, "jenkins-#{self.version}.war")
-    end
+    attribute(:host, kind_of: String, default: lazy { node['jenkins']['server']['host'] })
+    attribute(:port, kind_of: [String, Integer], default: lazy { node['jenkins']['server']['port'] })
+    attribute(:url, kind_of: String, default: lazy { node['jenkins']['server']['url'] || "http://#{host}:#{port}" })
 
     def initialize(*args)
       super
@@ -99,6 +80,10 @@ class Chef
         end
       end
       @subresources.each{|r| self.run_context.resource_collection.insert(r)} if @subresources
+    end
+
+    def war_path
+      ::File.join(self.path, "jenkins-#{self.version}.war")
     end
 
     def update_center
