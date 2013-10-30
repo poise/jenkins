@@ -102,7 +102,7 @@ class Chef
     end
 
     def update_center
-      @update_center ||= begin
+      @@update_center ||= begin
         data = open(node['jenkins']['server']['update_url']).read.split("\n")
         # Remove the first and last lines since those are actually Javascript code used for JSONP
         data.delete_at(0)
