@@ -29,19 +29,23 @@ require 'open-uri'
 require 'chef/dsl/recipe'
 require 'chef/mixin/shell_out'
 
+require File.expand_path('../jenkins_utils', __FILE__)
+
 class Chef
   class Resource::Jenkins < Resource::LWRPBase
-    include Poise::Resource
+    include Poise
+    include Poise::Resource::SubResourceContainer
     include Chef::DSL::Recipe
+    include JenkinsUtils
     self.resource_name = :jenkins
     default_action(:install)
-    actions(:uninstall, :wait_until_up)
+    actions(:uninstall, :wait_until_up, :restart)
 
     attribute(:path, kind_of: String, name_attribute: true)
     def version(arg=nil)
       # If we are reading, grab the actual latest version
       if !arg && (!@version || @version == 'latest')
-        @version = self.update_center['core']['version']
+        @version = update_center['core']['version']
       end
       set_or_return(:version, arg, kind_of: String, default: 'latest')
     end
@@ -49,7 +53,7 @@ class Chef
       val = set_or_return(:war_url, arg, kind_of: String, default: node['jenkins']['server']['war_url'])
       # Interpolate the version if needed
       if !arg && val
-        @war_url = (val %= self.version)
+        @war_url = (val %= {version: self.version})
       end
       val
     end
@@ -68,51 +72,28 @@ class Chef
     attribute(:port, kind_of: [String, Integer], default: lazy { node['jenkins']['server']['port'] })
     attribute(:url, kind_of: String, default: lazy { node['jenkins']['server']['url'] || "http://#{host}:#{port}" })
 
-    def initialize(*args)
+    def after_created
       super
-      @subresources = Poise::SubResourceCollection.new(run_context && run_context.resource_collection)
-    end
-
-    def after_create
       run_context.resource_collection.each do |res|
         if res.is_a?(self.class) && res.service_name == self.service_name
           raise "#{res} already uses service name #{self.service_name}"
         end
       end
-      @subresources.each{|r| self.run_context.resource_collection.insert(r)} if @subresources
     end
 
     def war_path
       ::File.join(self.path, "jenkins-#{self.version}.war")
     end
 
-    def update_center
-      @@update_center ||= begin
-        data = open(node['jenkins']['server']['update_url']).read.split("\n")
-        # Remove the first and last lines since those are actually Javascript code used for JSONP
-        data.delete_at(0)
-        data.delete_at(-1)
-        Chef::JSONCompat.from_json(data.join("\n"), create_additions: false)
-      end
-    end
-
     def method_missing(method_symbol, *args, &block)
-      method_symbol = :"jenkins_#{method_symbol}"
-      captive_run_context = run_context.dup
-      captive_run_context.resource_collection = @subresources
-      begin
-        original_run_context, @run_context = @run_context, captive_run_context
-        super(method_symbol, *args, &block)
-      ensure
-        @run_context = original_run_context
-      end
+      super(:"jenkins_#{method_symbol}", *args, &block)
     end
 
   end
 
   class Provider::Jenkins < Provider::LWRPBase
+    include Poise
     include Chef::Mixin::ShellOut
-    include Poise::Provider
 
     def initialize(*args)
       super
@@ -150,7 +131,7 @@ class Chef
     end
 
     def action_wait_until_up
-      Chef::Log.info "Waiting until Jenkins is listening on port #{node['jenkins']['server']['port']}"
+      Chef::Log.info "Waiting until Jenkins is listening on port #{new_resource.port}"
       until service_listening?
         sleep 1
         Chef::Log.debug('.')
@@ -161,6 +142,13 @@ class Chef
         sleep 1
         Chef::Log.debug('.')
       end
+    end
+
+    def action_restart
+      sub_resource_block do
+        service_resource.run_action(:restart)
+      end
+      action_wait_until_up
     end
 
     private

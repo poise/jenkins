@@ -23,7 +23,8 @@
 
 # Default values for jenkins resource parameters
 default['jenkins']['server']['update_url'] = 'https://updates.jenkins-ci.org/update-center.json'
-default['jenkins']['server']['war_url'] = 'http://updates.jenkins-ci.org/download/war/%s/jenkins.war'
+default['jenkins']['server']['war_url'] = 'http://mirrors.jenkins-ci.org/war/%{version}/jenkins.war'
+default['jenkins']['server']['plugin_url'] = 'http://mirrors.jenkins-ci.org/plugins/%{name}/%{version}/%{name}.hpi'
 default['jenkins']['server']['log_dir'] = '/var/log/jenkins'
 default['jenkins']['server']['service_name'] = 'jenkins'
 default['jenkins']['server']['user'] = 'jenkins'

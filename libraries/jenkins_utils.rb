@@ -1,14 +1,6 @@
 #
-# Author:: AJ Christensen <aj@junglist.gen.nz>
-# Author:: Dough MacEachern <dougm@vmware.com>
-# Author:: Fletcher Nichol <fnichol@nichol.ca>
-# Author:: Seth Chisamore <schisamo@opscode.com>
-# Author:: Guilhem Lettron <guilhem.lettron@youscribe.com>
 # Author:: Noah Kantrowitz <noah@coderanger.net>
 #
-# Copyright 2010, VMWare, Inc.
-# Copyright 2012, Opscode, Inc.
-# Copyright 2013, Youscribe.
 # Copyright 2013, Balanced, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +16,19 @@
 # limitations under the License.
 #
 
-jenkins node['jenkins']['server']['home'] do
-  plugin 'github'
+
+module JenkinsUtils
+  extend self
+
+  private
+  def update_center(node=nil)
+    node ||= self.node if self.respond_to?(:node)
+    @@update_center ||= begin
+      data = open(node['jenkins']['server']['update_url']).read.split("\n")
+      # Remove the first and last lines since those are actually Javascript code used for JSONP
+      data.delete_at(0)
+      data.delete_at(-1)
+      Chef::JSONCompat.from_json(data.join("\n"), create_additions: false)
+    end
+  end
 end
