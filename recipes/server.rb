@@ -24,6 +24,4 @@
 # limitations under the License.
 #
 
-jenkins node['jenkins']['server']['home'] do
-  plugin 'github'
-end
+jenkins node['jenkins']['server']['home']

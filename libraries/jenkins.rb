@@ -25,6 +25,7 @@
 #
 
 require 'open-uri'
+require 'rexml'
 
 require 'chef/dsl/recipe'
 require 'chef/mixin/shell_out'
@@ -39,7 +40,7 @@ class Chef
     include JenkinsUtils
     self.resource_name = :jenkins
     default_action(:install)
-    actions(:uninstall, :wait_until_up, :restart)
+    actions(:uninstall, :restart, :wait_until_up, :rebuild_config)
 
     attribute(:path, kind_of: String, name_attribute: true)
     def version(arg=nil)
@@ -85,6 +86,10 @@ class Chef
       ::File.join(self.path, "jenkins-#{self.version}.war")
     end
 
+    def config_path
+      ::File.join(self.path, 'config.d')
+    end
+
     def method_missing(method_symbol, *args, &block)
       super(:"jenkins_#{method_symbol}", *args, &block)
     end
@@ -113,6 +118,7 @@ class Chef
         create_plugins_dir
         create_log_dir
         create_ssh_dir
+        create_config_dir
         install_jenkins
         configure_service
       end
@@ -130,6 +136,13 @@ class Chef
       end
     end
 
+    def action_restart
+      sub_resource_block do
+        service_resource.run_action(:restart)
+      end
+      action_wait_until_up
+    end
+
     def action_wait_until_up
       Chef::Log.info "Waiting until Jenkins is listening on port #{new_resource.port}"
       until service_listening?
@@ -144,11 +157,27 @@ class Chef
       end
     end
 
-    def action_restart
-      sub_resource_block do
-        service_resource.run_action(:restart)
+    def action_rebuild_config
+      # Glom together all the config fragments
+      configs = Dir[::File.join(new_resource.config_path, '*.rb')].map do |path|
+        IO.read(path)
       end
-      action_wait_until_up
+      config_xml = "<?xml version='1.0' encoding='UTF-8'?>\n<hudson>\n#{configs.join("\n")}\n</hudson>\n"
+      # Try and parse the XML to make sure its at least potentially valid
+      begin
+        REXML::Document.new(config_xml)
+      rescue REXML::ParseException => e
+        raise "Invalid config XML: #{e.continued_exception}"
+      end
+      notifying_block do
+        file ::File.join(new_resource.path, 'config.xml') do
+          owner new_resource.parent.user
+          group new_resource.parent.group
+          mode '600'
+          content config_xml
+          notifies :restart, new_resource, :immediately
+        end
+      end
     end
 
     private
@@ -204,6 +233,14 @@ class Chef
         owner new_resource.user
         group new_resource.ssh_dir_group
         mode new_resource.ssh_dir_permissions
+      end
+    end
+
+    def create_config_dir
+      directory new_resource.config_path do
+        owner new_resource.user
+        group new_resource.group
+        mode new_resource.dir_permissions
       end
     end
 
