@@ -25,15 +25,19 @@ class Chef
     actions(:disable)
     parent_type(Jenkins)
 
-    attribute(:source, kind_of: String, required: true)
+    attribute(:source, kind_of: String)
     attribute(:cookbook, kind_of: [String, Symbol], default: lazy { cookbook_name })
+    attribute(:content, kind_of: String)
 
     def path
       ::File.join(parent.config_path, "#{name}.xml")
     end
 
     def after_created
+      super
       notifies(:rebuild_config, self.parent)
+      raise "#{self}: One of source or content is required" unless source || content
+      raise "#{self}: Only one of source or content can be specified" if source && content
     end
   end
 
@@ -54,12 +58,21 @@ class Chef
 
     private
     def write_config
-      template new_resource.path do
-        source new_resource.source
-        cookbook new_resource.cookbook
-        owner new_resource.parent.user
-        group new_resource.parent.group
-        mode '600'
+      if new_resource.source
+        template new_resource.path do
+          source new_resource.source
+          cookbook new_resource.cookbook
+          owner new_resource.parent.user
+          group new_resource.parent.group
+          mode '600'
+        end
+      else
+        file new_resource.path do
+          content new_resource.content
+          owner new_resource.parent.user
+          group new_resource.parent.group
+          mode '600'
+        end
       end
     end
 

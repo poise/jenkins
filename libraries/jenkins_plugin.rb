@@ -42,10 +42,11 @@ class Chef
     end
 
     def after_created
+      super
       plugin_data = update_center['plugins'][name]
       unless plugin_data
         similar = update_center['plugins'].each_key.select {|p| levenshtein_distance(name, p) <= 2}
-        raise "Unknown plugin #{name}. Maybe you meant one of: #{similar.join(', ')}"
+        raise "Unknown plugin #{name}." + (similar.empty? ? '' : " Maybe you meant one of: #{similar.join(', ')}")
       end
       plugin_data['dependencies'].each do |dep_data|
         next if dep_data['optional']
@@ -61,6 +62,7 @@ class Chef
           dep.recipe_name = recipe_name
           dep.params = params
           dep.enclosing_provider = enclosing_provider
+          dep.parent(parent)
           dep.after_created
           run_context.resource_collection.insert(dep)
         end

@@ -25,7 +25,7 @@
 #
 
 require 'open-uri'
-require 'rexml'
+require 'rexml/document'
 
 require 'chef/dsl/recipe'
 require 'chef/mixin/shell_out'
@@ -91,7 +91,13 @@ class Chef
     end
 
     def method_missing(method_symbol, *args, &block)
-      super(:"jenkins_#{method_symbol}", *args, &block)
+      super(sub_resource_name(method_symbol), *args, &block)
+    end
+
+    private
+
+    def sub_resource_name(method_symbol)
+      :"jenkins_#{method_symbol}"
     end
 
   end
@@ -171,8 +177,8 @@ class Chef
       end
       notifying_block do
         file ::File.join(new_resource.path, 'config.xml') do
-          owner new_resource.parent.user
-          group new_resource.parent.group
+          owner new_resource.user
+          group new_resource.group
           mode '600'
           content config_xml
           notifies :restart, new_resource, :immediately
@@ -272,6 +278,7 @@ class Chef
       include_recipe 'runit'
 
       @service_resource ||= runit_service new_resource.service_name do
+        cookbook 'jenkins'
         options new_resource: new_resource
       end
     end
