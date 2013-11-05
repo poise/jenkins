@@ -19,6 +19,7 @@
 
 require 'digest/sha1'
 
+require File.expand_path('../jenkins', __FILE__)
 require File.expand_path('../jenkins_utils', __FILE__)
 
 class Chef
