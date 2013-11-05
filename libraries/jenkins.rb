@@ -90,6 +90,10 @@ class Chef
       ::File.join(self.path, 'config.d')
     end
 
+    def jobs_path
+      ::File.join(self.path, 'jobs')
+    end
+
     def method_missing(method_symbol, *args, &block)
       super(sub_resource_name(method_symbol), *args, &block)
     end
@@ -125,6 +129,7 @@ class Chef
         create_log_dir
         create_ssh_dir
         create_config_dir
+        create_jobs_dir
         install_jenkins
         configure_service
       end
@@ -244,6 +249,14 @@ class Chef
 
     def create_config_dir
       directory new_resource.config_path do
+        owner new_resource.user
+        group new_resource.group
+        mode new_resource.dir_permissions
+      end
+    end
+
+    def create_jobs_dir
+      directory new_resource.jobs_path do
         owner new_resource.user
         group new_resource.group
         mode new_resource.dir_permissions
