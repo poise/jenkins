@@ -148,7 +148,7 @@ class Chef
     end
 
     def action_restart
-      sub_resource_block do
+      subcontext_block do
         service_resource.run_action(:restart)
       end
       action_wait_until_up
