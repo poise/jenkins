@@ -28,6 +28,7 @@ class Chef
     attribute(:source, kind_of: String)
     attribute(:cookbook, kind_of: [String, Symbol], default: lazy { cookbook_name })
     attribute(:content, kind_of: String)
+    attribute(:options, option_collector: true)
 
     def path
       ::File.join(parent.config_path, "#{name}.xml")
@@ -64,6 +65,7 @@ class Chef
           cookbook new_resource.cookbook
           owner new_resource.parent.user
           group new_resource.parent.group
+          variables new_resource.options.merge(new_resource: new_resource)
           mode '600'
         end
       else
