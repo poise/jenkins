@@ -83,15 +83,31 @@ class Chef
     end
 
     def war_path
-      ::File.join(self.path, "jenkins-#{self.version}.war")
+      ::File.join(path, "jenkins-#{self.version}.war")
+    end
+
+    def ssh_path
+      ::File.join(path, '.ssh')
+    end
+
+    def config_d_path
+      ::File.join(path, 'config.d')
     end
 
     def config_path
-      ::File.join(self.path, 'config.d')
+      ::File.join(path, 'config.xml')
     end
 
     def jobs_path
-      ::File.join(self.path, 'jobs')
+      ::File.join(path, 'jobs')
+    end
+
+    def credentials_d_path
+      ::File.join(path, 'credentials.d')
+    end
+
+    def credentials_path
+      ::File.join(path, 'credentials.xml')
     end
 
     def method_missing(method_symbol, *args, &block)
@@ -128,8 +144,9 @@ class Chef
         create_plugins_dir
         create_log_dir
         create_ssh_dir
-        create_config_dir
         create_jobs_dir
+        create_config_d_dir
+        create_credentials_d_dir
         install_jenkins
         configure_service
       end
@@ -169,25 +186,24 @@ class Chef
     end
 
     def action_rebuild_config
-      # Glom together all the config fragments
-      configs = Dir[::File.join(new_resource.config_path, '*.rb')].map do |path|
-        IO.read(path)
-      end
-      config_xml = "<?xml version='1.0' encoding='UTF-8'?>\n<hudson>\n#{configs.join("\n")}\n</hudson>\n"
-      # Try and parse the XML to make sure its at least potentially valid
-      begin
-        REXML::Document.new(config_xml)
-      rescue REXML::ParseException => e
-        raise "Invalid config XML: #{e.continued_exception}"
-      end
       notifying_block do
-        file ::File.join(new_resource.path, 'config.xml') do
-          owner new_resource.user
-          group new_resource.group
-          mode '600'
-          content config_xml
-          notifies :restart, new_resource, :immediately
-        end
+        rebuild_d_config(new_resource.config_d_path, new_resource.config_path, '<hudson>', '</hudson>')
+        cred_header = <<-EOH
+<com.cloudbees.plugins.credentials.SystemCredentialsProvider plugin="credentials@1.9.1">
+  <domainCredentialsMap class="hudson.util.CopyOnWriteMap$Hash">
+    <entry>
+      <com.cloudbees.plugins.credentials.domains.Domain>
+        <specifications/>
+      </com.cloudbees.plugins.credentials.domains.Domain>
+      <java.util.concurrent.CopyOnWriteArrayList>
+EOH
+        cred_footer = <<-EOH
+      </java.util.concurrent.CopyOnWriteArrayList>
+    </entry>
+  </domainCredentialsMap>
+</com.cloudbees.plugins.credentials.SystemCredentialsProvider>
+EOH
+        rebuild_d_config(new_resource.credentials_d_path, new_resource.credentials_path, cred_header, cred_footer)
       end
     end
 
@@ -240,18 +256,10 @@ class Chef
     end
 
     def create_ssh_dir
-      directory ::File.join(new_resource.path, '.ssh') do
+      directory new_resource.ssh_path do
         owner new_resource.user
         group new_resource.ssh_dir_group
         mode new_resource.ssh_dir_permissions
-      end
-    end
-
-    def create_config_dir
-      directory new_resource.config_path do
-        owner new_resource.user
-        group new_resource.group
-        mode new_resource.dir_permissions
       end
     end
 
@@ -260,6 +268,22 @@ class Chef
         owner new_resource.user
         group new_resource.group
         mode new_resource.dir_permissions
+      end
+    end
+
+    def create_config_d_dir
+      directory new_resource.config_d_path do
+        owner new_resource.user
+        group new_resource.group
+        mode new_resource.dir_permissions
+      end
+    end
+
+    def create_credentials_d_dir
+      directory new_resource.credentials_d_path do
+        owner new_resource.user
+        group new_resource.ssh_dir_group
+        mode new_resource.ssh_dir_permissions
       end
     end
 
@@ -325,6 +349,27 @@ class Chef
 
     def remove_service
       # TODO
+    end
+
+    def rebuild_d_config(source_path, dest_path, header, footer)
+      # Glom together all the config fragments
+      configs = Dir[::File.join(source_path, '*.xml')].sort!.map do |path|
+        IO.read(path)
+      end
+      xml = "<?xml version='1.0' encoding='UTF-8'?>\n#{header}\n#{configs.join("\n")}\n#{footer}\n"
+      # Try and parse the XML to make sure its at least potentially valid
+      begin
+        REXML::Document.new(xml)
+      rescue REXML::ParseException => e
+        raise "Invalid config XML: #{e.continued_exception}"
+      end
+      file dest_path do
+        owner new_resource.user
+        group new_resource.group
+        mode '600'
+        content xml
+        notifies :restart, new_resource, :immediately
+      end
     end
 
     # Helpers used to check if Jenkins is available

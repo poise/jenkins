@@ -31,12 +31,12 @@ class Chef
     attribute(:options, option_collector: true)
 
     def path
-      ::File.join(parent.config_path, "#{name}.xml")
+      ::File.join(parent.config_d_path, "#{name}.xml")
     end
 
     def after_created
       super
-      notifies(:rebuild_config, self.parent)
+      notifies(:rebuild_config, parent)
       raise "#{self}: One of source or content is required" unless source || content
       raise "#{self}: Only one of source or content can be specified" if source && content
     end
