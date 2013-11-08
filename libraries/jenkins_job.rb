@@ -68,7 +68,7 @@ class Chef
     private
 
     def create_directory
-      directory ::File.join(new_resource.parent.jobs_path, job_name) do
+      directory ::File.join(new_resource.parent.jobs_path, new_resource.job_name) do
         owner new_resource.parent.user
         group new_resource.parent.group
         mode new_resource.parent.dir_permissions
