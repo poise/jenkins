@@ -32,6 +32,7 @@ class Chef
     actions(:remove)
     parent_type(Jenkins)
 
+    attribute(:plugin_name, kind_of: String, default: lazy { name.split('::').last })
     # Unfortunately I cannot allow installing anything but the latest version
     # because the plugin metadata only provides the latest, and so for anything
     # else I can't check dependencies or SHA hashes.
@@ -44,10 +45,10 @@ class Chef
 
     def after_created
       super
-      plugin_data = update_center['plugins'][name]
+      plugin_data = update_center['plugins'][plugin_name]
       unless plugin_data
         similar = update_center['plugins'].each_key.select {|p| levenshtein_distance(name, p) <= 2}
-        raise "Unknown plugin #{name}." + (similar.empty? ? '' : " Maybe you meant one of: #{similar.join(', ')}")
+        raise "Unknown plugin #{plugin_name}." + (similar.empty? ? '' : " Maybe you meant one of: #{similar.join(', ')}")
       end
       plugin_data['dependencies'].each do |dep_data|
         next if dep_data['optional']
@@ -136,7 +137,7 @@ class Chef
     end
 
     def file_matches?
-      Digest::SHA1.base64digest(IO.read(plugin_file_path)) == update_center['plugins'][new_resource.name]['sha1']
+      Digest::SHA1.base64digest(IO.read(plugin_file_path)) == update_center['plugins'][new_resource.plugin_name]['sha1']
     rescue Errno::ENOENT
       false
     end
@@ -144,13 +145,13 @@ class Chef
   private
 
     def latest_version
-      @latest_version ||= update_center['plugins'][new_resource.name]['version']
+      @latest_version ||= update_center['plugins'][new_resource.plugin_name]['version']
     end
 
     def current_version
       @current_version ||= begin
         version = nil
-        manifest_file = ::File.join(plugins_dir, new_resource.name, 'META-INF', 'MANIFEST.MF')
+        manifest_file = ::File.join(plugins_dir, new_resource.plugin_name, 'META-INF', 'MANIFEST.MF')
         if ::File.exist?(manifest_file)
           manifest = IO.read(manifest_file)
           version = manifest.match(/^Plugin-Version:\s*(.+)$/)[1].strip
@@ -164,11 +165,11 @@ class Chef
     end
 
     def plugin_dir_path
-      ::File.join(plugins_dir, new_resource.name)
+      ::File.join(plugins_dir, new_resource.plugin_name)
     end
 
     def plugin_file_path
-      ::File.join(plugins_dir, "#{new_resource.name}.jpi")
+      ::File.join(plugins_dir, "#{new_resource.plugin_name}.jpi")
     end
 
     def plugins_dir
@@ -177,7 +178,7 @@ class Chef
 
     def do_install_plugin
       self_ = self
-      plugin_url = new_resource.url  % {name: new_resource.name, version: latest_version}
+      plugin_url = new_resource.url  % {name: new_resource.plugin_name, version: latest_version}
       notifying_block do
         # Plugins installed from the Jenkins Update Center are written to disk with
         # the `*.jpi` extension. Although plugins downloaded from the Jenkins Mirror
