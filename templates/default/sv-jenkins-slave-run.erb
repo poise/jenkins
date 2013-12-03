@@ -1,0 +1,8 @@
+#!/bin/sh
+exec 2>&1
+cd <%= @options[:new_resource].path %>
+exec chpst -u <%= @options[:new_resource].user %> \
+  java -jar <%= @options[:new_resource].path %>/slave.jar \
+  -jnlpUrl <%= @options[:new_resource].server_url %>/computer/<%= @options[:new_resource].node_name %>/slave-agent.jnlp \
+  <%= @options[:jnlp_secret] && !@options[:jnlp_secret].empty? ?  "-secret #{@options[:jnlp_secret]}" : '' %> \
+  <%= @options[:new_resource].jvm_options %>

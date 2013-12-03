@@ -21,12 +21,10 @@ require 'digest/sha1'
 require File.expand_path('../jenkins', __FILE__)
 
 class Chef
-  class Resource::JenkinsCredential < Resource::LWRPBase
-    include Poise
+  class Resource::JenkinsCredential < Resource
+    include Poise(Jenkins)
     poise_subresource(Jenkins)
-    self.resource_name = :jenkins_credential
-    default_action(:create)
-    actions(:remove)
+    actions(:create, :remove)
 
     attribute(:uuid, kind_of: String, default: lazy { _uuid })
     attribute(:username, kind_of: String, default: lazy { name.split('::').last })
@@ -52,7 +50,7 @@ class Chef
     end
   end
 
-  class Provider::JenkinsCredential < Provider::LWRPBase
+  class Provider::JenkinsCredential < Provider
     include Poise
 
     def action_create

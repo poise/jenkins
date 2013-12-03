@@ -23,14 +23,10 @@ require File.expand_path('../jenkins', __FILE__)
 require File.expand_path('../jenkins_utils', __FILE__)
 
 class Chef
-  class Resource::JenkinsPlugin < Resource::LWRPBase
-    include Poise
-    include Poise::Resource::SubResource
+  class Resource::JenkinsPlugin < Resource
+    include Poise(Jenkins)
     include JenkinsUtils
-    self.resource_name = :jenkins_plugin
-    default_action(:install)
-    actions(:remove)
-    parent_type(Jenkins)
+    actions(:install, :remove)
 
     attribute(:plugin_name, kind_of: String, default: lazy { name.split('::').last })
     # Unfortunately I cannot allow installing anything but the latest version
@@ -100,12 +96,9 @@ class Chef
 
   end
 
-  class Provider::JenkinsPlugin < Provider::LWRPBase
+  class Provider::JenkinsPlugin < Provider
     include Poise
     include JenkinsUtils
-    def whyrun_supported?
-      true
-    end
 
     def action_install
       Chef::Log.debug "#{new_resource}: current version=#{current_version}, requested version=#{latest_version}"

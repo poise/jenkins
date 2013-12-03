@@ -24,12 +24,9 @@
 require File.expand_path('../jenkins', __FILE__)
 
 class Chef
-  class Resource::JenkinsJob < Resource::LWRPBase
-    include Poise
-    poise_subresource(Jenkins)
-    self.resource_name = :jenkins_job
-    default_action(:update)
-    actions(:create, :delete, :build, :disable, :enable)
+  class Resource::JenkinsJob < Resource
+    include Poise(Jenkins)
+    actions(:update, :create, :delete, :build, :disable, :enable)
 
     attribute(:job_name, kind_of: String, default: lazy { name.split('::').last })
     attribute(:source, kind_of: String)
@@ -49,7 +46,7 @@ class Chef
     end
   end
 
-  class Provider::JenkinsJob < Provider::LWRPBase
+  class Provider::JenkinsJob < Provider
     include Poise
 
     def action_update
@@ -79,7 +76,7 @@ class Chef
       if new_resource.source
         template new_resource.path do
           source new_resource.source
-          cookbook new_resource.cookbook
+          cookbook new_resource.cookbook.to_s
           owner new_resource.parent.user
           group new_resource.parent.group
           variables new_resource.options.merge(new_resource: new_resource)

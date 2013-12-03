@@ -33,14 +33,10 @@ require 'chef/mixin/shell_out'
 require File.expand_path('../jenkins_utils', __FILE__)
 
 class Chef
-  class Resource::Jenkins < Resource::LWRPBase
-    include Poise
-    include Poise::Resource::SubResourceContainer
-    include Chef::DSL::Recipe
+  class Resource::Jenkins < Resource
+    include Poise(container: true)
     include JenkinsUtils
-    self.resource_name = :jenkins
-    default_action(:install)
-    actions(:uninstall, :restart, :wait_until_up, :rebuild_config)
+    actions(:install, :uninstall, :restart, :wait_until_up, :rebuild_config)
 
     attribute(:path, kind_of: String, name_attribute: true)
     def version(arg=nil)
@@ -122,17 +118,13 @@ class Chef
 
   end
 
-  class Provider::Jenkins < Provider::LWRPBase
+  class Provider::Jenkins < Provider
     include Poise
     include Chef::Mixin::ShellOut
 
     def initialize(*args)
       super
       initialize_resource_defaults
-    end
-
-    def whyrun_supported?
-      true
     end
 
     def action_install

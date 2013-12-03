@@ -21,7 +21,8 @@
 # limitations under the License.
 #
 
-# Default values for jenkins resource parameters
+# Default values for jenkins resource
+# -----------------------------------
 default['jenkins']['server']['update_url'] = 'https://updates.jenkins-ci.org/update-center.json'
 default['jenkins']['server']['war_url'] = 'http://mirrors.jenkins-ci.org/war/%{version}/jenkins.war'
 default['jenkins']['server']['plugin_url'] = 'http://mirrors.jenkins-ci.org/plugins/%{name}/%{version}/%{name}.hpi'
@@ -40,6 +41,66 @@ default['jenkins']['server']['port'] = 8080
 default['jenkins']['server']['host'] = node['fqdn']
 default['jenkins']['server']['url'] = nil
 
+# Defaults values for jenkins_node resource
+# -----------------------------------------
+default['jenkins']['node']['home'] = '/home/jenkins'
+default['jenkins']['node']['log_dir'] = '/var/log/jenkins'
+default['jenkins']['node']['agent_type'] = 'jnlp'
+case node['platform_family']
+when 'mac_os_x'
+  default['jenkins']['node']['home'] = '/Users/jenkins'
+when 'windows'
+  default['jenkins']['node']['home'] = 'C:/jenkins'
+  default['jenkins']['node']['log_dir'] = 'C:/jenkins'
+  default['jenkins']['node']['agent_type'] = 'windows'
+  default['jenkins']['node']['service_user'] = 'LocalSystem'
+  default['jenkins']['node']['service_user_password'] = nil
+  # The native URL for this is http://repo.jenkins-ci.org/releases/com/sun/winsw/winsw/1.13/winsw-1.13-bin.exe but I want HTTPS
+  default['jenkins']['node']['winsw_url'] = 'https://jenkinsci.artifactoryonline.com/jenkinsci/releases/com/sun/winsw/winsw/1.13/winsw-1.13-bin.exe'
+end
+
+default['jenkins']['node']['user'] = 'jenkins-node'
+default['jenkins']['node']['group'] = 'jenkins-node'
+default['jenkins']['node']['shell'] = '/bin/sh'
+default['jenkins']['node']['server_url'] = nil
+default['jenkins']['node']['name'] = node['fqdn']
+default['jenkins']['node']['description'] =
+  "#{node['platform']} #{node['platform_version']} " <<
+  "[#{node['kernel']['os']} #{node['kernel']['release']} #{node['kernel']['machine']}] " <<
+  "slave on #{node['hostname']}"
+default['jenkins']['node']['labels'] = (node['tags'] || [])
+
+default['jenkins']['node']['env'] = {}
+default['jenkins']['node']['executors'] = 1
+default['jenkins']['node']['in_demand_delay'] = 0
+default['jenkins']['node']['idle_delay'] = 1
+
+# Usage
+# normal - Utilize this slave as much as possible
+# exclusive - Leave this machine for tied jobs only
+default['jenkins']['node']['mode'] = 'normal'
+
+# Availability
+# always - Keep this slave on-line as much as possible
+# demand - Take this slave on-line when in demand and off-line when idle
+default['jenkins']['node']['availability'] = 'always'
+
+# SSH options
+default['jenkins']['node']['ssh_host'] = node['fqdn']
+default['jenkins']['node']['ssh_port'] = 22
+default['jenkins']['node']['ssh_user'] = default['jenkins']['node']['user']
+default['jenkins']['node']['ssh_pass'] = nil
+default['jenkins']['node']['ssh_private_key'] = nil
+default['jenkins']['node']['jvm_options'] = nil
+
+# Default values for jenkins_cli resource
+# ---------------------------------------
+default['jenkins']['cli']['java_params'] = nil
+default['jenkins']['cli']['username'] = nil
+default['jenkins']['cli']['password'] = nil
+default['jenkins']['cli']['password_file'] = nil
+
 # Values for the jenkins::server recipe
+# -------------------------------------
 default['jenkins']['server']['home'] = '/var/lib/jenkins'
 default['jenkins']['server']['install_method'] = 'war'

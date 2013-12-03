@@ -16,14 +16,12 @@
 # limitations under the License.
 #
 
+require File.expand_path('../jenkins', __FILE__)
+
 class Chef
-  class Resource::JenkinsConfig < Resource::LWRPBase
-    include Poise
-    include Poise::Resource::SubResource
-    self.resource_name = :jenkins_config
-    default_action(:enable)
-    actions(:disable)
-    parent_type(Jenkins)
+  class Resource::JenkinsConfig < Resource
+    include Poise(Jenkins)
+    actions(:enable, :disable)
 
     attribute(:source, kind_of: String)
     attribute(:cookbook, kind_of: [String, Symbol], default: lazy { cookbook_name })
@@ -42,7 +40,7 @@ class Chef
     end
   end
 
-  class Provider::JenkinsConfig < Provider::LWRPBase
+  class Provider::JenkinsConfig < Provider
     include Poise
 
     def action_enable
@@ -58,11 +56,12 @@ class Chef
     end
 
     private
+
     def write_config
       if new_resource.source
         template new_resource.path do
           source new_resource.source
-          cookbook new_resource.cookbook
+          cookbook new_resource.cookbook.to_s
           owner new_resource.parent.user
           group new_resource.parent.group
           variables new_resource.options.merge(new_resource: new_resource)
