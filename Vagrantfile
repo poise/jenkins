@@ -55,7 +55,7 @@ Vagrant.configure("2") do |config|
   config.ssh.max_tries = 40
   config.ssh.timeout   = 120
 
-  config.omnibus.chef_version = "11.6.2"
+  config.omnibus.chef_version = "11.8.0"
 
   # The path to the Berksfile to use with Vagrant Berkshelf
   # config.berkshelf.berksfile_path = "./Berksfile"
