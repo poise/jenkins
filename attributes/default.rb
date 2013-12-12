@@ -96,9 +96,7 @@ default['jenkins']['node']['jvm_options'] = nil
 # Default values for jenkins_cli resource
 # ---------------------------------------
 default['jenkins']['cli']['java_params'] = nil
-default['jenkins']['cli']['username'] = nil
-default['jenkins']['cli']['password'] = nil
-default['jenkins']['cli']['password_file'] = nil
+default['jenkins']['cli']['key_file'] = nil
 
 # Values for the jenkins::server recipe
 # -------------------------------------

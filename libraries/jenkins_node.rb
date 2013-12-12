@@ -19,7 +19,61 @@
 # limitations under the License.
 #
 
+require 'rexml/document'
+require 'uri'
+require 'rest-client'
+
 require File.expand_path('../jenkins', __FILE__)
+
+class JenkinsAPI
+  def initialize(url, username=nil, password=nil)
+    @raw_url = url
+    @username = username
+    @password = password
+    @raw_url.chop! if @raw_url[-1] == '/'
+    @url = URI(@raw_url)
+    @url.user = @username
+    @url.password = @password
+  end
+
+  def url
+    @url.to_s
+  end
+
+  def get(path)
+    Chef::Log.debug("[jenkins-api] Requesting '#{url + path}'")
+    format_rest_client_error do
+      RestClient.get(url + path)
+    end
+  end
+
+  def post(path, params={})
+    # Check for crumbs
+    begin
+      crumb_data = get_json('/crumbIssuer/api/json/')
+      params[crumb_data['crumbRequestField']] = crumb_data['crumb']
+    rescue RestClient::ResourceNotFound
+      # Crumbs not enabled
+    end
+    Chef::Log.debug("[jenkins-api] Posting to '#{url + path}' with #{params.inspect}")
+    format_rest_client_error do
+      RestClient.post(url + path, params)
+    end
+  end
+
+  def get_json(path)
+    Chef::JSONCompat.from_json(get(path).to_str, create_additions: false)
+  end
+
+  private
+
+  def format_rest_client_error(&block)
+    block.call
+  rescue RestClient::Exception => e
+    Chef::Log.debug("[jenkins-api] Error #{e.http_code}: #{e.http_body}")
+    raise
+  end
+end
 
 class Chef
   class Resource::JenkinsNode < Resource
@@ -35,6 +89,9 @@ class Chef
     attribute(:service_name, kind_of: String, default: lazy { "jenkins-slave-#{node_name}" })
 
     attribute(:server_url, kind_of: String, default: lazy { (parent && parent.url) || node['jenkins']['node']['server_url'] })
+    attribute(:server_username, kind_of: String, default: lazy { node['jenkins']['node']['server_username'] })
+    attribute(:server_password, kind_of: String, default: lazy { node['jenkins']['node']['server_password'] })
+    attribute(:jnlp_secret, kind_of: String, default: lazy { parse_jnlp_secret })
     attribute(:executors, kind_of: Integer, default: lazy { node['jenkins']['node']['executors'] })
     attribute(:mode, equal_to: %w(normal exclusive), default: lazy { node['jenkins']['node']['mode'] })
     attribute(:labels, kind_of: Array, default: lazy { [] })
@@ -56,16 +113,28 @@ class Chef
       ::File.join(path, 'jenkins-slave.exe')
     end
 
-    def node_info_groovy
-      ::File.join(path, 'node_info.groovy')
+    def api
+      @api ||= JenkinsAPI.new(server_url, server_username, server_password)
     end
 
-    def manage_node_groovy
-      ::File.join(path, "manage_#{node_name}.groovy")
+    def parse_jnlp_secret
+      doc = REXML::Document.new(api.get("/computer/#{node_name}/slave-agent.jnlp").to_str)
+      doc.elements.each('//application-desc/argument') do |elem|
+        if elem.text =~ /[0-9a-f]{64}/
+          return elem.text
+        end
+      end
     end
 
     def after_created
       super
+      # # Write the username and password into the URL
+      # url = URI(server_url)
+      # url.user = server_user
+      # url.password = server_password
+      # url.path << '/' unless url.path[-1] == '/'
+      # server_url(url.to_s)
+      # Automatic labels to help with job targetting
       if auto_labels
         extra_labels = [
           node['platform'], # ubuntu
@@ -92,9 +161,12 @@ class Chef
     attribute(:ssh_password, kind_of: String, default: lazy { node['jenkins']['node']['ssh_password'] })
     attribute(:ssh_private_key, kind_of: String, default: lazy { node['jenkins']['node']['ssh_private_key'] })
     attribute(:ssh_shell, kind_of: String, default: lazy { node['jenkins']['node']['shell'] })
+    attribute(:server_pubkey, kind_of: String, default: lazy { search_for_server_pubkey })
 
-    def server_pubkey
-      raise "SOMETHING HERE"
+    def search_for_server_pubkey
+      unless Chef::Config[:solo]
+        raise 'Searching for the server pubkey not yet implemented'
+      end
     end
   end
 
@@ -109,10 +181,9 @@ class Chef
           create_group
           create_user
           create_directory
-          create_node_info_groovy
-          configure_jenkins_node
-          create_slave
         end
+        configure_jenkins_node
+        create_slave
       end
     end
 
@@ -156,6 +227,10 @@ class Chef
       end
     end
 
+    def api
+      new_resource.api
+    end
+
     private
 
     def create_group
@@ -177,64 +252,74 @@ class Chef
       end
     end
 
-    def create_node_info_groovy
-      cookbook_file new_resource.node_info_groovy do
-        source 'node_info.groovy'
-        cookbook 'jenkins'
-        owner 'root'
-        group 'root'
-        mode '644'
-      end
-    end
-
-    def launcher_groovy
-      'new JNLPLauncher()'
+    def launcher_data
+      {'stapler-class' => 'hudson.slaves.JNLPLauncher'}
     end
 
     def configure_jenkins_node
-      manage = jenkins_cli "groovy #{new_resource.manage_node_groovy}" do
-        url new_resource.server_url
-        path new_resource.path
-        action :nothing
+      node_properties = {
+        'stapler-class-bag' => 'true',
+      }
+      if new_resource.env && !new_resource.env.empty?
+        node_properties['hudson-slaves-EnvironmentVariablesNodeProperty'] = {
+          'env' => new_resource.env.map{|key, value| {'key' => key, 'value' => value}},
+        }
       end
-      launcher = launcher_groovy
 
-      template new_resource.manage_node_groovy do
-        source 'manage_node.groovy.erb'
-        cookbook 'jenkins'
-        owner 'root'
-        group 'root'
-        mode '600'
-        variables new_resource: new_resource, launcher: launcher
-        notifies :run, manage, :immediately
+      retention_strategy = if new_resource.availability == 'always'
+        {'stapler-class' => 'hudson.slaves.RetentionStrategy$Always'}
+      else
+        {
+          'stapler-class' => 'hudson.slaves.RetentionStrategy$Demand',
+          'inDemandDelay' => new_resource.in_demand_delay.to_s,
+          'idleDelay' => new_resource.idle_delay.to_s,
+        }
+      end
+
+      node_data = {
+        "name" => new_resource.node_name,
+        "nodeDescription" => new_resource.description,
+        "numExecutors" => new_resource.executors.to_s,
+        "remoteFS" => new_resource.path,
+        "labelString" => new_resource.labels.join(' '),
+        "mode" => new_resource.mode.upcase,
+        "type" => "hudson.slaves.DumbSlave$DescriptorImpl",
+        "retentionStrategy" => retention_strategy,
+        "nodeProperties" => node_properties,
+        "launcher" => launcher_data, # This is a method on the provider so subclasses can override
+      }
+
+      begin
+        api.get("/computer/#{new_resource.node_name}")
+        exists = true
+      rescue RestClient::ResourceNotFound
+        exists = false
+      end
+
+      begin
+        if exists
+          # Update existing node data
+          api.post("/computer/#{new_resource.node_name}/configSubmit", json: node_data.to_json)
+        else
+          api.post('/computer/doCreateItem', name: new_resource.node_name, type: 'hudson.slaves.DumbSlave$DescriptorImpl', json: node_data.to_json)
+        end
+      rescue RestClient::Found
+        # This space left intentionally blank
       end
     end
 
     def create_slave
-      download_slave
-      find_jnlp_secret
-      configure_service
-    end
-
-    def download_slave
-      r = service_resource # Fracking scoping rules will be the death of me
-      remote_file new_resource.slave_jar do
-        source "#{new_resource.server_url}/jnlpJars/slave.jar"
-        owner new_resource.user
-        notifies :restart, r, :immediately
+      notifying_block do
+        download_slave
+        configure_service
       end
     end
 
-    def find_jnlp_secret
-      self_ = self
-      jenkins_cli "node_info for #{new_resource.node_name} to get jnlp secret" do
-        url new_resource.server_url
-        path new_resource.path
-        command "groovy node_info.groovy #{new_resource.node_name}"
-        block do |stdout|
-          current_node = JSON.parse(stdout)
-          self_.jnlp_secret = current_node['secret'] if current_node['secret']
-        end
+    def download_slave
+      remote_file new_resource.slave_jar do
+        source "#{api.url}/jnlpJars/slave.jar"
+        owner new_resource.user
+        notifies :restart, "runit_service[#{new_resource.service_name}]"
       end
     end
 
@@ -245,7 +330,7 @@ class Chef
         cookbook 'jenkins'
         run_template_name 'jenkins-slave'
         log_template_name 'jenkins-slave'
-        options new_resource: new_resource, jnlp_secret: jnlp_secret
+        options new_resource: new_resource
       end
     end
 
@@ -253,6 +338,7 @@ class Chef
       service_resource
     end
 
+    # All this jenkins_cli stuff won't work against authenticated servers
     def delete_node
       jenkins_cli "delete-node #{new_resource.node_name}" do
         url new_resource.server_url

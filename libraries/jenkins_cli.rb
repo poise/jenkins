@@ -27,9 +27,6 @@ class Chef
     attribute(:path, kind_of: String, default: lazy { parent && parent.path })
     attribute(:java_home, kind_of: String, default: lazy { node['jenkins']['java_home'] || (node['java'] && node['java']['java_home'])})
     attribute(:jvm_options, kind_of: String, default: lazy { node['jenkins']['cli']['jvm_options'] })
-    attribute(:username, kind_of: String, default: lazy { node['jenkins']['cli']['username'] })
-    attribute(:password, kind_of: String, default: lazy { node['jenkins']['cli']['password'] })
-    attribute(:password_file, kind_of: String, default: lazy { node['jenkins']['cli']['password_file'] })
     attribute(:key_file, kind_of: String, default: lazy { node['jenkins']['cli']['key_file'] })
 
     def after_created
@@ -59,9 +56,6 @@ class Chef
         cmd << " -jar #{cli_jar}"
         cmd << " -i #{key_file}" if key_file
         cmd << " -s #{url} #{command}"
-        cmd << " --username #{username}" if username
-        cmd << " --password #{password}" if password
-        cmd << " --password_file #{password_file}" if password_file
         cmd
       end
     end
