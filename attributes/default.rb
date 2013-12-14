@@ -98,6 +98,18 @@ default['jenkins']['node']['jvm_options'] = nil
 default['jenkins']['cli']['java_params'] = nil
 default['jenkins']['cli']['key_file'] = nil
 
+# Default values for jenkins_proxy resource
+# ------------------------------------------
+default['jenkins']['proxy']['listen_ports'] = [80]
+default['jenkins']['proxy']['hostname'] = nil # node['fqdn']
+
+default['jenkins']['proxy']['ssl_enabled'] = false
+default['jenkins']['proxy']['ssl_redirect_http'] = true
+default['jenkins']['proxy']['ssl_listen_ports'] = [443]
+default['jenkins']['proxy']['ssl_path'] = nil # node['jenkins']['server']['home']}/ssl
+default['jenkins']['proxy']['cert_path'] = nil # node['jenkins']['http_proxy']['ssl']['dir']}/jenkins.pem
+default['jenkins']['proxy']['key_path'] = nil # node['jenkins']['http_proxy']['ssl']['dir']}/jenkins.key
+
 # Values for the jenkins::server recipe
 # -------------------------------------
 default['jenkins']['server']['home'] = '/var/lib/jenkins'
