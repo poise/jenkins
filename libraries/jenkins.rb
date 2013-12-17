@@ -68,6 +68,11 @@ class Chef
     attribute(:host, kind_of: String, default: lazy { node['jenkins']['server']['host'] })
     attribute(:port, kind_of: [String, Integer], default: lazy { node['jenkins']['server']['port'] })
     attribute(:url, kind_of: String, default: lazy { node['jenkins']['server']['url'] || "http://#{host}:#{port}" })
+    attribute(:slave_agent_port, default: lazy { node['jenkins']['server']['slave_agent_port'] })
+    # Config template paramers
+    attribute(:config_source, kind_of: String)
+    attribute(:config_cookbook, kind_of: [String, Symbol])
+    attribute(:config_options, option_collector: true)
 
     def after_created
       super
@@ -75,6 +80,21 @@ class Chef
         if res.is_a?(self.class) && res.service_name == self.service_name
           raise "#{res} already uses service name #{self.service_name}"
         end
+      end
+      # Initialize config template defaults
+      # If source is given, the default cookbook should be the current one
+      config_cookbook(config_source ? cookbook_name : 'jenkins') unless config_cookbook
+      # Fill in default config, now that we know what the cookbook is
+      config_source('config.xml.erb') unless config_source
+
+      # Validate and convert the slave_agent_port
+      if slave_agent_port == :random
+        slave_agent_port(0)
+      elsif slave_agent_port == false
+        slave_agent_port(-1)
+      end
+      if !slave_agent_port.is_a?(Integer) || slave_agent_port < -1 || slave_agent_port > 65535
+        raise Exceptions::ValidationFailed, "slave_agent_port must be between 1-65535, :random, or false. Got #{slave_agent_port.inspect}"
       end
     end
 
@@ -92,6 +112,10 @@ class Chef
 
     def config_path
       ::File.join(path, 'config.xml')
+    end
+
+    def core_config_path
+      ::File.join(config_d_path, 'core.xml')
     end
 
     def jobs_path
@@ -138,6 +162,7 @@ class Chef
         create_ssh_dir
         create_jobs_dir
         create_config_d_dir
+        create_core_config
         create_credentials_d_dir
         install_jenkins
         configure_service
@@ -268,6 +293,18 @@ EOH
         owner new_resource.user
         group new_resource.group
         mode new_resource.dir_permissions
+      end
+    end
+
+    def create_core_config
+      template new_resource.core_config_path do
+        owner new_resource.user
+        group new_resource.group
+        mode '600'
+        notifies :rebuild_config, new_resource, :immediately
+        source new_resource.config_source
+        cookbook new_resource.config_cookbook
+        variables new_resource.config_options.update(new_resource: new_resource)
       end
     end
 

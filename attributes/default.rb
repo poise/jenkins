@@ -40,6 +40,7 @@ default['jenkins']['server']['log_dir_permissions'] = '755'
 default['jenkins']['server']['port'] = 8080
 default['jenkins']['server']['host'] = node['fqdn']
 default['jenkins']['server']['url'] = nil
+default['jenkins']['server']['slave_agent_port'] = :random
 
 # Defaults values for jenkins_node resource
 # -----------------------------------------
