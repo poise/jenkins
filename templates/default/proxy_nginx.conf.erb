@@ -40,6 +40,7 @@ server {
   server_name       <%= Array(@new_resource.hostname).join(' ') %>;
 
   client_max_body_size 1024m;
+  ignore_invalid_headers off; <%# By default Jenkins stores the CSRF token in a header ".crumb" which is invalid %>
 
 <% if @new_resource.ssl_enabled -%>
   ssl on;
