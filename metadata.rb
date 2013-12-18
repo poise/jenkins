@@ -23,7 +23,7 @@
 
 name 'jenkins'
 # Lead with a 99 to override the similarly-named cookbook from the community site
-version '99.1.3'
+version '99.1.4'
 
 maintainer 'Noah Kantrowitz'
 maintainer_email 'noah@coderanger.net'
