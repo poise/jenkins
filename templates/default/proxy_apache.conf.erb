@@ -29,7 +29,7 @@ Listen <%= port %> http
 NameVirtualHost *:<%= port %>
 <% end -%>
 <VirtualHost <%= @new_resource.listen_ports.map{|port| "*:#{port}"}.join(' ') %>>
-  ServerName <%= Array(@new_resource.hostname).first) %>
+  ServerName <%= Array(@new_resource.hostname).first %>
   <%- if Array(@new_resource.hostname).length > 1 -%>
   ServerAlias <%= Array(@new_resource.hostname).drop(1).join(' ') %>
   <%- end -%>
