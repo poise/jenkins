@@ -322,6 +322,7 @@ EOH
         owner new_resource.user
         group new_resource.group
         mode '644'
+        action :create_if_missing
       end
     end
 
