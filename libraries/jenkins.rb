@@ -70,9 +70,7 @@ class Chef
     attribute(:url, kind_of: String, default: lazy { node['jenkins']['server']['url'] || "http://#{host}:#{port}" })
     attribute(:slave_agent_port, default: lazy { node['jenkins']['server']['slave_agent_port'] })
     # Config template paramers
-    attribute(:config_source, kind_of: String)
-    attribute(:config_cookbook, kind_of: [String, Symbol])
-    attribute(:config_options, option_collector: true)
+    attribute(:config, template: true, default_source: 'config.xml.erb')
 
     def after_created
       super
@@ -81,11 +79,6 @@ class Chef
           raise "#{res} already uses service name #{self.service_name}"
         end
       end
-      # Initialize config template defaults
-      # If source is given, the default cookbook should be the current one
-      config_cookbook(config_source ? cookbook_name : 'jenkins') unless config_cookbook
-      # Fill in default config, now that we know what the cookbook is
-      config_source('config.xml.erb') unless config_source
 
       # Validate and convert the slave_agent_port
       if slave_agent_port == :random
@@ -297,14 +290,12 @@ EOH
     end
 
     def create_core_config
-      template new_resource.core_config_path do
+      file new_resource.core_config_path do
         owner new_resource.user
         group new_resource.group
         mode '600'
-        notifies :rebuild_config, new_resource, :immediately
-        source new_resource.config_source
-        cookbook new_resource.config_cookbook
-        variables new_resource.config_options.update(new_resource: new_resource)
+        notifies :rebuild_config, new_resource
+        content new_resource.config_content
       end
     end
 
@@ -363,13 +354,13 @@ EOH
 
     def remove_home_dir
       directory new_resource.path do
-        action :remove
+        action :delete
       end
     end
 
     def remove_log_dir
       directory new_resource.log_dir do
-        action :remove
+        action :delete
       end
     end
 

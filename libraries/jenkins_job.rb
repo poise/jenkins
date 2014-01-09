@@ -29,10 +29,7 @@ class Chef
     actions(:update, :create, :delete, :build, :disable, :enable)
 
     attribute(:job_name, kind_of: String, default: lazy { name.split('::').last })
-    attribute(:source, kind_of: String)
-    attribute(:cookbook, kind_of: [String, Symbol], default: lazy { cookbook_name })
-    attribute(:content, kind_of: String)
-    attribute(:options, option_collector: true)
+    attribute('', template: true, required: true)
 
     def path
       ::File.join(parent.jobs_path, job_name, 'config.xml')
@@ -41,8 +38,6 @@ class Chef
     def after_created
       super
       notifies(:restart, self.parent)
-      raise "#{self}: One of source or content is required" unless source || content
-      raise "#{self}: Only one of source or content can be specified" if source && content
     end
   end
 
@@ -73,22 +68,11 @@ class Chef
     end
 
     def write_config
-      if new_resource.source
-        template new_resource.path do
-          source new_resource.source
-          cookbook new_resource.cookbook.to_s
-          owner new_resource.parent.user
-          group new_resource.parent.group
-          variables new_resource.options.merge(new_resource: new_resource)
-          mode '600'
-        end
-      else
-        file new_resource.path do
-          content new_resource.content
-          owner new_resource.parent.user
-          group new_resource.parent.group
-          mode '600'
-        end
+      file new_resource.path do
+        content new_resource.content
+        owner new_resource.parent.user
+        group new_resource.parent.group
+        mode '600'
       end
     end
 

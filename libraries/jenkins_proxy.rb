@@ -26,10 +26,7 @@ class Chef
     include Poise(Jenkins)
     actions(:install)
 
-    attribute(:source, kind_of: String)
-    attribute(:cookbook, kind_of: [String, Symbol], default: lazy { source ? cookbook_name : 'jenkins' })
-    attribute(:content, kind_of: String)
-    attribute(:options, option_collector: true)
+    attribute('', template: true)
     attribute(:listen_ports, kind_of: Array, default: lazy { node['jenkins']['proxy']['listen_ports'] })
     attribute(:hostname, kind_of: String, default: lazy { node['jenkins']['proxy']['hostname'] || node['fqdn'] })
     attribute(:ssl_enabled, equal_to: [true, false], default: lazy { node['jenkins']['proxy']['ssl_enabled'] })
@@ -49,7 +46,9 @@ class Chef
 
     def provider_for_action(*args)
       unless provider
-        if run_context.cookbook_collection['apache2']
+        if node['jenkins']['proxy']['provider']
+          provider(node['jenkins']['proxy']['provider'].to_sym)
+        elsif run_context.cookbook_collection['apache2']
           provider(:apache)
         elsif run_context.cookbook_collection['nginx']
           provider(:nginx)
@@ -94,23 +93,13 @@ class Chef
     end
 
     def configure_server
-      if new_resource.content
-        file config_path do
-          content new_resource.content
-          owner 'root'
-          group 'root'
-          mode '600'
-        end
-      else
-        template config_path do
-          source new_resource.source || default_source
-          cookbook new_resource.cookbook.to_s
-          owner 'root'
-          group 'root'
-          variables new_resource.options.merge(new_resource: new_resource)
-          mode '600'
-          notifies  :restart, server_resource
-        end
+      # Only set the default source if nothing is currently set
+      source(default_source) if !source && !content(nil, true)
+      file config_path do
+        content new_resource.content
+        owner 'root'
+        group 'root'
+        mode '600'
       end
     end
 
