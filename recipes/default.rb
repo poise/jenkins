@@ -25,3 +25,7 @@
 #
 
 jenkins node['jenkins']['server']['home']
+
+if node['jenkins']['enable_proxy']
+  jenkins_proxy node['jenkins']['server']['home']
+end
