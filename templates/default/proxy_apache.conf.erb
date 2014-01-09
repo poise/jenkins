@@ -23,7 +23,7 @@
 # limitations under the License.
 #
 
-<% if @new_resource.ssl_redirect_http -%>
+<% if @new_resource.ssl_enabled && @new_resource.ssl_redirect_http -%>
 <% @new_resource.listen_ports.select{|port| port.to_i != 80}.each do |port| -%>
 Listen <%= port %> http
 NameVirtualHost *:<%= port %>
@@ -51,8 +51,8 @@ NameVirtualHost *:<%= port %>
 
   <%- if @new_resource.ssl_enabled -%>
   SSLEngine on
-  SSLCertificateFile <%= @new_resource.cert_path %>
-  SSLCertificateKeyFile <%= @new_resource.key_path %>
+  SSLCertificateFile <%= @new_resource.ssl_cert_path %>
+  SSLCertificateKeyFile <%= @new_resource.ssl_key_path %>
 
   # Via https://hynek.me/articles/hardening-your-web-servers-ssl-ciphers/
   SSLProtocol ALL -SSLv2
@@ -64,14 +64,14 @@ NameVirtualHost *:<%= port %>
   # Local reverse proxy authorization override
   # Most unix distribution deny proxy by default
   # (ie /etc/apache2/mods-enabled/proxy.conf in Ubuntu)
-  <Proxy http://localhost:<%= @new_resource.port %>/*>
+  <Proxy http://localhost:<%= @new_resource.parent.port %>/*>
     Order deny,allow
     Allow from all
   </Proxy>
 
   ProxyPreserveHost on
-  ProxyPass / http://localhost:<%= @new_resource.port %>/
-  ProxyPassReverse / http://localhost:<%= @new_resource.port %>/
+  ProxyPass / http://localhost:<%= @new_resource.parent.port %>/
+  ProxyPassReverse / http://localhost:<%= @new_resource.parent.port %>/
   <%- Array(@new_resource.hostname).each do |host| -%>
   ProxyPassReverse / http://<%= host %>/
   <%- end -%>

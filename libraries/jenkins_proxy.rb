@@ -32,9 +32,11 @@ class Chef
     attribute(:ssl_enabled, equal_to: [true, false], default: lazy { node['jenkins']['proxy']['ssl_enabled'] })
     attribute(:ssl_redirect_http, equal_to: [true, false], default: lazy { node['jenkins']['proxy']['ssl_redirect_http'] })
     attribute(:ssl_listen_ports, kind_of: Array, default: lazy { node['jenkins']['proxy']['ssl_listen_ports'] })
-    attribute(:ssl_path, kind_of: String, default: lazy { ::File.join(parent.path, 'ssl') })
-    attribute(:cert_path, kind_of: String, default: lazy { ::File.join(ssl_path, 'jenkins.pem') })
-    attribute(:key_path, kind_of: String, default: lazy { ::File.join(ssl_path, 'jenkins.key') })
+    attribute(:ssl_path, kind_of: String, default: lazy { node['jenkins']['proxy']['ssl_path'] || ::File.join(parent.path, 'ssl') })
+    attribute(:ssl_cert, kind_of: String)
+    attribute(:ssl_key, kind_of: String)
+    attribute(:ssl_cert_path, kind_of: String, default: lazy { node['jenkins']['proxy']['ssl_cert_path'] || ::File.join(ssl_path, 'jenkins.pem') })
+    attribute(:ssl_key_path, kind_of: String, default: lazy { node['jenkins']['proxy']['ssl_key_path'] || ::File.join(ssl_path, 'jenkins.key') })
 
     def provider(arg=nil)
       if arg.kind_of?(String) || arg.kind_of?(Symbol)
@@ -48,10 +50,8 @@ class Chef
       unless provider
         if node['jenkins']['proxy']['provider']
           provider(node['jenkins']['proxy']['provider'].to_sym)
-        elsif run_context.cookbook_collection['apache2']
-          provider(:apache)
-        elsif run_context.cookbook_collection['nginx']
-          provider(:nginx)
+        elsif default_provider = self.class.default_provider(node)
+          provider(default_provider)
         else
           raise 'Unable to autodetect proxy provider, please specify one'
         end
@@ -59,9 +59,15 @@ class Chef
       super
     end
 
-    def after_created
-      super
-      raise "#{self}: Only one of source or content can be specified" if source && content
+    def self.default_provider(node)
+      # I would rather check if the cookbook is present, but this will have to do for now.
+      # Checking run_context.cookbook_collection.include? fails because for solo it just blindly
+      # loads everything in the cookbook_path.
+      if node['recipes'].include?('apache2')
+        :apache
+      elsif node['recipes'].include?('nginx')
+        :nginx
+      end
     end
   end
 
@@ -72,9 +78,14 @@ class Chef
       converge_by("install a proxy server named #{Array(new_resource.hostname).join(', ')} for the Jenkins server at port #{new_resource.parent.port}") do
         notifying_block do
           install_server
+          create_ssl_dir
+          install_cert
+          install_key
           configure_server
           enable_vhost
         end
+        # If anything below changes, reload the service
+        new_resource.notifies(:reload, run_context.resource_collection.find(service_resource))
       end
     end
 
@@ -88,13 +99,48 @@ class Chef
       raise NotImplementedError
     end
 
-    def server_resource
+    def service_resource
       raise NotImplementedError
+    end
+
+    def create_ssl_dir
+      if new_resource.ssl_enabled
+        directory new_resource.ssl_path do
+          owner 'root'
+          group 'root'
+          mode '700'
+        end
+      end
+    end
+
+    def install_cert
+      if new_resource.ssl_enabled && new_resource.ssl_cert
+        file new_resource.ssl_cert_path do
+          owner 'root'
+          group 'root'
+          mode '600'
+          content new_resource.ssl_cert
+        end
+      end
+    end
+
+    def install_key
+      if new_resource.ssl_enabled && new_resource.ssl_key
+        file new_resource.ssl_key_path do
+          owner 'root'
+          group 'root'
+          mode '600'
+          content new_resource.ssl_key
+        end
+      end
     end
 
     def configure_server
       # Only set the default source if nothing is currently set
-      source(default_source) if !source && !content(nil, true)
+      if !new_resource.source && !new_resource.content(nil, true)
+        new_resource.source(default_source)
+        new_resource.cookbook('jenkins')
+      end
       file config_path do
         content new_resource.content
         owner 'root'
@@ -121,7 +167,7 @@ class Chef
       'proxy_nginx.conf.erb'
     end
 
-    def server_resource
+    def service_resource
       'service[nginx]'
     end
 
@@ -135,6 +181,7 @@ class Chef
   class Provider::JenkinsProxy::Apache < Provider::JenkinsProxy
     def install_server
       include_recipe 'apache2'
+      include_recipe 'apache2::mod_rewrite'
       include_recipe 'apache2::mod_ssl' if new_resource.ssl_enabled
 
       apache_module 'proxy'
@@ -150,7 +197,7 @@ class Chef
       'proxy_apache.conf.erb'
     end
 
-    def server_resource
+    def service_resource
       'service[apache2]'
     end
 
