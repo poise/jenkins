@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "jenkins": {
-      "locked_version": "99.1.6",
+      "locked_version": "99.1.7",
       "path": "."
     },
     "apt": {
@@ -12,10 +12,6 @@
     },
     "apache2": {
       "locked_version": "1.8.14"
-    },
-    "poise": {
-      "locked_version": "1.0.5",
-      "path": "../poise"
     },
     "java": {
       "locked_version": "1.17.6"
@@ -49,6 +45,9 @@
     },
     "chef_handler": {
       "locked_version": "1.1.4"
+    },
+    "poise": {
+      "locked_version": "1.0.4"
     }
   }
 }
