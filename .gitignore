@@ -8,7 +8,6 @@
 /cookbooks
 
 # Bundler
-Gemfile.lock
 bin/*
 .bundle/*
 

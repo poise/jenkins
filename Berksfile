@@ -1,7 +1,7 @@
 #
 # Author:: Noah Kantrowitz <noah@coderanger.net>
 #
-# Copyright 2013, Balanced, Inc.
+# Copyright 2013-2014, Balanced, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 # limitations under the License.
 #
 
-chef_api :config
-site :opscode
+source 'https://berks.vandelay.io/'
 
 metadata
 
-cookbook 'apt'
-cookbook 'poise', '~> 1.0.0'
+group :test do
+  cookbook 'apt'
+  cookbook 'nginx'
+  cookbook 'apache2'
+end

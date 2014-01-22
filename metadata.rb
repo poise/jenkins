@@ -23,7 +23,7 @@
 
 name 'jenkins'
 # Lead with a 99 to override the similarly-named cookbook from the community site
-version '99.1.5'
+version '99.1.6'
 
 maintainer 'Noah Kantrowitz'
 maintainer_email 'noah@coderanger.net'
@@ -31,7 +31,7 @@ license 'Apache 2.0'
 description 'Installs and configures Jenkins CI server & slaves'
 long_description IO.read(File.join(File.dirname(__FILE__), 'README.md'))
 
-depends 'poise', '>= 1.0.1'
+depends 'poise', '~> 1.0.2'
 depends 'java'
 depends 'runit', '>= 1.0.0'
 depends 'apt'

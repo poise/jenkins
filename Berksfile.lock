@@ -1,40 +1,54 @@
 {
-  "sources": {
+  "dependencies": {
     "jenkins": {
+      "locked_version": "99.1.6",
       "path": "."
     },
     "apt": {
-      "locked_version": "2.3.0"
+      "locked_version": "2.3.4"
+    },
+    "nginx": {
+      "locked_version": "2.2.0"
+    },
+    "apache2": {
+      "locked_version": "1.8.14"
     },
     "poise": {
-      "locked_version": "1.0.0"
+      "locked_version": "1.0.5",
+      "path": "../poise"
     },
     "java": {
-      "locked_version": "1.13.0"
+      "locked_version": "1.17.6"
+    },
+    "runit": {
+      "locked_version": "1.5.8"
+    },
+    "yum": {
+      "locked_version": "3.0.4"
+    },
+    "bluepill": {
+      "locked_version": "2.3.1"
+    },
+    "build-essential": {
+      "locked_version": "1.4.2"
+    },
+    "ohai": {
+      "locked_version": "1.1.12"
+    },
+    "yum-epel": {
+      "locked_version": "0.2.0"
     },
     "windows": {
-      "locked_version": "1.9.0"
+      "locked_version": "1.12.6"
+    },
+    "aws": {
+      "locked_version": "1.0.0"
+    },
+    "rsyslog": {
+      "locked_version": "1.10.2"
     },
     "chef_handler": {
       "locked_version": "1.1.4"
-    },
-    "runit": {
-      "locked_version": "1.1.4"
-    },
-    "build-essential": {
-      "locked_version": "1.4.0"
-    },
-    "yum": {
-      "locked_version": "2.2.2"
-    },
-    "apache2": {
-      "locked_version": "1.8.4"
-    },
-    "nginx": {
-      "locked_version": "1.8.0"
-    },
-    "ohai": {
-      "locked_version": "1.1.10"
     }
   }
 }
