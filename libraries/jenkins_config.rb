@@ -21,51 +21,17 @@ require File.expand_path('../jenkins', __FILE__)
 class Chef
   class Resource::JenkinsConfig < Resource
     include Poise(Jenkins)
-    actions(:enable, :disable)
+    actions(:enable)
 
     attribute(:config_name, kind_of: String, default: lazy { name.split('::').last })
     attribute('', template: true, required: true)
-
-    def path
-      ::File.join(parent.config_d_path, "#{config_name}.xml")
-    end
-
-    def after_created
-      super
-      notifies(:rebuild_config, parent)
-    end
   end
 
   class Provider::JenkinsConfig < Provider
     include Poise
 
     def action_enable
-      notifying_block do
-        write_config
-      end
-    end
-
-    def action_disable
-      notifying_block do
-        delete_config
-      end
-    end
-
-    private
-
-    def write_config
-      file new_resource.path do
-        content new_resource.content
-        owner new_resource.parent.user
-        group new_resource.parent.group
-        mode '600'
-      end
-    end
-
-    def delete_config
-      file new_resource.path do
-        action :delete
-      end
+      # This space left intentionally blank
     end
   end
 end

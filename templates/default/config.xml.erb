@@ -1,1 +1,19 @@
-<slaveAgentPort><%= @new_resource.slave_agent_port %></slaveAgentPort>
+<?xml version='1.0' encoding='UTF-8'?>
+<hudson>
+  <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsConfig) }.each do |r| -%>
+  <%= r.content %>
+  <%- end -%>
+  <views>
+    <hudson.model.AllView>
+      <owner class="hudson" reference="../../.."/>
+      <name>All</name>
+      <filterExecutors>false</filterExecutors>
+      <filterQueue>false</filterQueue>
+      <properties class="hudson.model.View$PropertyList"/>
+    </hudson.model.AllView>
+    <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsView) }.each do |r| -%>
+    <%= r.content %>
+    <%- end -%>
+  </views>
+  <primaryView>All</primaryView>
+</hudson>

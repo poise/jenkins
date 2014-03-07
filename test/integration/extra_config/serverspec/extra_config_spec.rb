@@ -16,15 +16,20 @@
 # limitations under the License.
 #
 
-source 'https://rubygems.org'
+require 'serverspec'
+include Serverspec::Helper::Exec
+include Serverspec::Helper::DetectOS
 
-gem 'chef'
-gem 'test-kitchen'
-gem 'berkshelf', github: 'berkshelf/berkshelf'
-gem 'kitchen-vagrant'
-gem 'vagrant-wrapper'
-gem 'foodcritic', '>= 3.0.3'
+describe port(8080) do
+  it { should be_listening }
+end
 
-gem 'vagrant', github: 'mitchellh/vagrant', ref: 'v1.4.3'
-gem 'vagrant-berkshelf', github: 'berkshelf/vagrant-berkshelf'
-gem 'vagrant-omnibus'
+describe file('/var/lib/jenkins/config.xml') do
+  its(:content) { should include('<!-- Extra config -->') }
+  its(:content) { should include('<string>job1</string>') }
+  its(:content) { should include('<string>job2</string>') }
+end
+
+describe file('/var/lib/jenkins/credentials.xml') do
+  it { should be_a_file }
+end

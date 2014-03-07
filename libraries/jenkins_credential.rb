@@ -23,23 +23,14 @@ require File.expand_path('../jenkins', __FILE__)
 class Chef
   class Resource::JenkinsCredential < Resource
     include Poise(Jenkins)
-    poise_subresource(Jenkins)
-    actions(:create, :remove)
+    actions(:enable)
 
+    attribute('', template: true, default_source: 'credential.xml.erb')
     attribute(:uuid, kind_of: String, default: lazy { _uuid })
     attribute(:username, kind_of: String, default: lazy { name.split('::').last })
     attribute(:passphrase, kind_of: String)
     attribute(:key, kind_of: String, required: true)
     attribute(:description, kind_of: String)
-
-    def path
-      ::File.join(parent.credentials_d_path, "#{name}.xml")
-    end
-
-    def after_created
-      super
-      notifies(:rebuild_config, parent)
-    end
 
     private
 
@@ -53,36 +44,8 @@ class Chef
   class Provider::JenkinsCredential < Provider
     include Poise
 
-    def action_create
-      notifying_block do
-        create_template
-      end
+    def action_enable
+      # This space left intentionally blank
     end
-
-    def action_remove
-      notifying_block do
-        remove_template
-      end
-    end
-
-    private
-
-    def create_template
-      template new_resource.path do
-        source 'credential.xml.erb'
-        cookbook 'jenkins'
-        owner new_resource.parent.user
-        group new_resource.parent.group
-        mode '600'
-        variables new_resource: new_resource
-      end
-    end
-
-    def remove_template
-      r = create_template
-      r.action(:delete)
-      r
-    end
-
   end
 end

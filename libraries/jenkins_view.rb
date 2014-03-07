@@ -1,7 +1,7 @@
 #
 # Author:: Noah Kantrowitz <noah@coderanger.net>
 #
-# Copyright 2013-2014, Balanced, Inc.
+# Copyright 2013, Balanced, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,23 @@
 # limitations under the License.
 #
 
-source 'https://rubygems.org'
+require File.expand_path('../jenkins', __FILE__)
 
-gem 'chef'
-gem 'test-kitchen'
-gem 'berkshelf', github: 'berkshelf/berkshelf'
-gem 'kitchen-vagrant'
-gem 'vagrant-wrapper'
-gem 'foodcritic', '>= 3.0.3'
+class Chef
+  class Resource::JenkinsView < Resource
+    include Poise(Jenkins)
+    actions(:enable)
 
-gem 'vagrant', github: 'mitchellh/vagrant', ref: 'v1.4.3'
-gem 'vagrant-berkshelf', github: 'berkshelf/vagrant-berkshelf'
-gem 'vagrant-omnibus'
+    attribute(:view_name, kind_of: String, default: lazy { name.split('::').last })
+    attribute('', template: true, default_source: 'view.xml.erb')
+    attribute(:jobs, kind_of: Array, default: [])
+  end
+
+  class Provider::JenkinsView < Provider
+    include Poise
+
+    def action_enable
+      # This space left intentionally blank
+    end
+  end
+end

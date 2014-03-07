@@ -1,0 +1,25 @@
+<listView>
+  <owner class="hudson" reference="../../.."/>
+  <name><%= @new_resource.view_name %></name>
+  <filterExecutors>false</filterExecutors>
+  <filterQueue>false</filterQueue>
+  <properties class="hudson.model.View$PropertyList"/>
+  <jobNames>
+    <comparator class="hudson.util.CaseInsensitiveComparator"/>
+    <%- @new_resource.jobs.each do |job| -%>
+    <string><%= job %></string>
+    <%- end -%>
+  </jobNames>
+  <jobFilters/>
+  <columns>
+    <hudson.views.StatusColumn/>
+    <hudson.views.WeatherColumn/>
+    <hudson.views.JobColumn/>
+    <hudson.views.LastSuccessColumn/>
+    <hudson.views.LastFailureColumn/>
+    <hudson.views.LastDurationColumn/>
+    <hudson.views.BuildButtonColumn/>
+    <hudson.plugins.CronViewColumn plugin="cron_column@1.003"/>
+  </columns>
+  <recurse>false</recurse>
+</listView>
