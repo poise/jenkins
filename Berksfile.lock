@@ -1,53 +1,45 @@
-{
-  "dependencies": {
-    "jenkins": {
-      "locked_version": "99.1.7",
-      "path": "."
-    },
-    "apt": {
-      "locked_version": "2.3.4"
-    },
-    "nginx": {
-      "locked_version": "2.2.0"
-    },
-    "apache2": {
-      "locked_version": "1.8.14"
-    },
-    "java": {
-      "locked_version": "1.17.6"
-    },
-    "runit": {
-      "locked_version": "1.5.8"
-    },
-    "yum": {
-      "locked_version": "3.0.4"
-    },
-    "bluepill": {
-      "locked_version": "2.3.1"
-    },
-    "build-essential": {
-      "locked_version": "1.4.2"
-    },
-    "ohai": {
-      "locked_version": "1.1.12"
-    },
-    "yum-epel": {
-      "locked_version": "0.2.0"
-    },
-    "windows": {
-      "locked_version": "1.12.6"
-    },
-    "aws": {
-      "locked_version": "1.0.0"
-    },
-    "rsyslog": {
-      "locked_version": "1.10.2"
-    },
-    "chef_handler": {
-      "locked_version": "1.1.4"
-    },
-    "poise": {
-      "locked_version": "1.0.4"
-    }
-  }
-}
+DEPENDENCIES
+  apache2
+  apt
+  jenkins
+    path: .
+  jenkins_test
+    path: ./test/cookbooks/jenkins_test
+  nginx
+
+GRAPH
+  apache2 (1.8.14)
+  apt (2.3.4)
+  bluepill (2.3.1)
+    rsyslog (>= 0.0.0)
+  build-essential (1.4.4)
+  iptables (0.12.0)
+  java (1.20.0)
+  jenkins (99.1.7)
+    apt (>= 0.0.0)
+    java (>= 0.0.0)
+    poise (~> 1.0.2)
+    runit (>= 1.0.0)
+    yum (>= 0.0.0)
+  jenkins_test (0.0.0)
+    jenkins (>= 0.0.0)
+  logrotate (1.5.0)
+  nginx (2.2.0)
+    apt (~> 2.2)
+    bluepill (~> 2.3)
+    build-essential (~> 1.4)
+    ohai (~> 1.1)
+    runit (~> 1.2)
+    yum (~> 3.0)
+    yum-epel (>= 0.0.0)
+  ohai (1.1.12)
+  pacman (1.1.1)
+  poise (1.0.6)
+  rsyslog (1.12.2)
+  runit (1.5.8)
+    build-essential (>= 0.0.0)
+    yum (~> 3.0)
+    yum-epel (>= 0.0.0)
+  yum (3.1.2)
+  yum-epel (0.3.4)
+    yum (~> 3.0)

@@ -21,7 +21,8 @@ source 'https://berks.vandelay.io/'
 metadata
 
 group :test do
-  cookbook 'apt'
-  cookbook 'nginx'
   cookbook 'apache2'
+  cookbook 'apt'
+  cookbook 'jenkins_test', path: 'test/cookbooks/jenkins_test'
+  cookbook 'nginx'
 end

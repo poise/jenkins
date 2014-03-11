@@ -36,7 +36,7 @@ class Chef
   class Resource::Jenkins < Resource
     include Poise(container: true)
     include JenkinsUtils
-    actions(:install, :uninstall, :restart, :wait_until_up, :rebuild_config)
+    actions(:install, :uninstall, :restart, :wait_until_up)
 
     attribute(:path, kind_of: String, name_attribute: true)
     def version(arg=nil)
@@ -71,6 +71,7 @@ class Chef
     attribute(:slave_agent_port, default: lazy { node['jenkins']['server']['slave_agent_port'] })
     # Config template paramers
     attribute(:config, template: true, default_source: 'config.xml.erb')
+    attribute(:credentials, template: true, default_source: 'credentials.xml.erb')
 
     def after_created
       super
@@ -99,24 +100,12 @@ class Chef
       ::File.join(path, '.ssh')
     end
 
-    def config_d_path
-      ::File.join(path, 'config.d')
-    end
-
-    def config_path
-      ::File.join(path, 'config.xml')
-    end
-
-    def core_config_path
-      ::File.join(config_d_path, 'core.xml')
-    end
-
     def jobs_path
       ::File.join(path, 'jobs')
     end
 
-    def credentials_d_path
-      ::File.join(path, 'credentials.d')
+    def config_path
+      ::File.join(path, 'config.xml')
     end
 
     def credentials_path
@@ -154,9 +143,9 @@ class Chef
         create_log_dir
         create_ssh_dir
         create_jobs_dir
-        create_config_d_dir
-        create_core_config
-        create_credentials_d_dir
+        write_core_config
+        write_config
+        write_credentials
         install_jenkins
         configure_service
       end
@@ -192,28 +181,6 @@ class Chef
       until endpoint_responding?
         sleep 1
         Chef::Log.debug('.')
-      end
-    end
-
-    def action_rebuild_config
-      notifying_block do
-        rebuild_d_config(new_resource.config_d_path, new_resource.config_path, '<hudson>', '</hudson>')
-        cred_header = <<-EOH
-<com.cloudbees.plugins.credentials.SystemCredentialsProvider plugin="credentials@1.9.1">
-  <domainCredentialsMap class="hudson.util.CopyOnWriteMap$Hash">
-    <entry>
-      <com.cloudbees.plugins.credentials.domains.Domain>
-        <specifications/>
-      </com.cloudbees.plugins.credentials.domains.Domain>
-      <java.util.concurrent.CopyOnWriteArrayList>
-EOH
-        cred_footer = <<-EOH
-      </java.util.concurrent.CopyOnWriteArrayList>
-    </entry>
-  </domainCredentialsMap>
-</com.cloudbees.plugins.credentials.SystemCredentialsProvider>
-EOH
-        rebuild_d_config(new_resource.credentials_d_path, new_resource.credentials_path, cred_header, cred_footer)
       end
     end
 
@@ -281,29 +248,35 @@ EOH
       end
     end
 
-    def create_config_d_dir
-      directory new_resource.config_d_path do
-        owner new_resource.user
-        group new_resource.group
-        mode new_resource.dir_permissions
+    def write_core_config
+      jenkins_config "#{new_resource.name}-core" do
+        source 'core_config.xml.erb'
+        cookbook 'jenkins'
+        parent new_resource
       end
     end
 
-    def create_core_config
-      file new_resource.core_config_path do
+    def write_config
+      # Try and parse the XML to make sure its at least potentially valid
+      REXML::Document.new(new_resource.config_content)
+      file new_resource.config_path do
         owner new_resource.user
         group new_resource.group
         mode '600'
-        notifies :rebuild_config, new_resource
+        notifies :restart, new_resource
         content new_resource.config_content
       end
     end
 
-    def create_credentials_d_dir
-      directory new_resource.credentials_d_path do
+    def write_credentials
+      # Try and parse the XML to make sure its at least potentially valid
+      REXML::Document.new(new_resource.credentials_content)
+      file new_resource.credentials_path do
         owner new_resource.user
-        group new_resource.ssh_dir_group
-        mode new_resource.ssh_dir_permissions
+        group new_resource.group
+        mode '600'
+        notifies :restart, new_resource
+        content new_resource.credentials_content
       end
     end
 
@@ -369,27 +342,6 @@ EOH
 
     def remove_service
       # TODO
-    end
-
-    def rebuild_d_config(source_path, dest_path, header, footer)
-      # Glom together all the config fragments
-      configs = Dir[::File.join(source_path, '*.xml')].sort!.map do |path|
-        IO.read(path)
-      end
-      xml = "<?xml version='1.0' encoding='UTF-8'?>\n#{header}\n#{configs.join("\n")}\n#{footer}\n"
-      # Try and parse the XML to make sure its at least potentially valid
-      begin
-        REXML::Document.new(xml)
-      rescue REXML::ParseException => e
-        raise "Invalid config XML: #{e.continued_exception}"
-      end
-      file dest_path do
-        owner new_resource.user
-        group new_resource.group
-        mode '600'
-        content xml
-        notifies :restart, new_resource, :immediately
-      end
     end
 
     # Helpers used to check if Jenkins is available
