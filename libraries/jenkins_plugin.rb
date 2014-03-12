@@ -146,7 +146,7 @@ class Chef
         version = nil
         manifest_file = ::File.join(plugins_dir, new_resource.plugin_name, 'META-INF', 'MANIFEST.MF')
         if ::File.exist?(manifest_file)
-          manifest = IO.read(manifest_file)
+          manifest = IO.read(manifest_file, encoding: 'UTF-8')
           version = manifest.match(/^Plugin-Version:\s*(.+)$/)[1].strip
         end
         version
