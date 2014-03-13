@@ -78,8 +78,9 @@ end
 class Chef
   class Resource::JenkinsNode < Resource
     include Poise(parent: Jenkins, parent_optional: true)
-    actions(:create, :delete, :connect, :disconnect, :online, :offline)
+    actions(:enable, :install, :uninstall)
 
+    attribute('', template: true, default_source: 'node.xml.erb')
     attribute(:node_name, kind_of: String, default: lazy { name.split('::').last })
     attribute(:path, kind_of: String, default: lazy { node['jenkins']['node']['home'] })
     attribute(:log_path, kind_of: String, default: lazy { node['jenkins']['node']['log_dir'] })
@@ -103,6 +104,13 @@ class Chef
     attribute(:env, kind_of: Hash, default: lazy { node['jenkins']['node']['env'] })
     # Not making a new subclass just for this since frequent overrides seem unlikely (famous last words)
     attribute(:winsw_url, kind_of: String, default: lazy { node['jenkins']['node']['winsw_url'] })
+
+    def initialize(*args)
+      super
+      if @action == :enable && !parent
+        @action = :install # If we don't have a parent, make install the default
+      end
+    end
 
     def slave_jar
       ::File.join(path, 'slave.jar')
@@ -174,7 +182,11 @@ class Chef
     include Poise
     attr_accessor :jnlp_secret
 
-    def action_create
+    def action_enable
+      raise "Cannot enable the node without a parent reference, maybe you meant action :install?" unless new_resource.parent
+    end
+
+    def action_install
       include_recipe 'java'
       converge_by("create Jenkins node #{new_resource.node_name} at #{new_resource.path}") do
         notifying_block do
@@ -182,47 +194,14 @@ class Chef
           create_user
           create_directory
         end
-        configure_jenkins_node
         create_slave
       end
     end
 
-    def action_delete
+    def action_uninstall
       converge_by("delete Jenkins node #{new_resource.node_name}") do
         notifying_block do
-          delete_node
-        end
-      end
-    end
-
-    def action_connect
-      converge_by("connect Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          connect_node
-        end
-      end
-    end
-
-    def action_disconnect
-      converge_by("disconnect Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          delete_node
-        end
-      end
-    end
-
-    def action_online
-      converge_by("online Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          online_node
-        end
-      end
-    end
-
-    def action_offline
-      converge_by("offline Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          offline_node
+          raise NotImplementedError
         end
       end
     end
@@ -249,62 +228,6 @@ class Chef
       directory new_resource.path do
         owner new_resource.user
         group new_resource.group
-      end
-    end
-
-    def launcher_data
-      {'stapler-class' => 'hudson.slaves.JNLPLauncher'}
-    end
-
-    def configure_jenkins_node
-      node_properties = {
-        'stapler-class-bag' => 'true',
-      }
-      if new_resource.env && !new_resource.env.empty?
-        node_properties['hudson-slaves-EnvironmentVariablesNodeProperty'] = {
-          'env' => new_resource.env.map{|key, value| {'key' => key, 'value' => value}},
-        }
-      end
-
-      retention_strategy = if new_resource.availability == 'always'
-        {'stapler-class' => 'hudson.slaves.RetentionStrategy$Always'}
-      else
-        {
-          'stapler-class' => 'hudson.slaves.RetentionStrategy$Demand',
-          'inDemandDelay' => new_resource.in_demand_delay.to_s,
-          'idleDelay' => new_resource.idle_delay.to_s,
-        }
-      end
-
-      node_data = {
-        "name" => new_resource.node_name,
-        "nodeDescription" => new_resource.description,
-        "numExecutors" => new_resource.executors.to_s,
-        "remoteFS" => new_resource.path,
-        "labelString" => new_resource.labels.join(' '),
-        "mode" => new_resource.mode.upcase,
-        "type" => "hudson.slaves.DumbSlave$DescriptorImpl",
-        "retentionStrategy" => retention_strategy,
-        "nodeProperties" => node_properties,
-        "launcher" => launcher_data, # This is a method on the provider so subclasses can override
-      }
-
-      begin
-        api.get("/computer/#{new_resource.node_name}")
-        exists = true
-      rescue RestClient::ResourceNotFound
-        exists = false
-      end
-
-      begin
-        if exists
-          # Update existing node data
-          api.post("/computer/#{new_resource.node_name}/configSubmit", json: node_data.to_json)
-        else
-          api.post('/computer/doCreateItem', name: new_resource.node_name, type: 'hudson.slaves.DumbSlave$DescriptorImpl', json: node_data.to_json)
-        end
-      rescue RestClient::Found
-        # This space left intentionally blank
       end
     end
 
@@ -336,42 +259,6 @@ class Chef
 
     def configure_service
       service_resource
-    end
-
-    # All this jenkins_cli stuff won't work against authenticated servers
-    def delete_node
-      jenkins_cli "delete-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def connect_node
-      jenkins_cli "connect-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def disconnect_node
-      jenkins_cli "disconnect-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def online_node
-      jenkins_cli "online-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def offline_node
-      jenkins_cli "offline-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
     end
   end
 
@@ -408,16 +295,6 @@ class Chef
 
     def create_slave
       # SSH has no explicit slave service
-    end
-
-    def launcher_groovy
-      password = if new_resource.password.nil?
-        'null'
-      else
-        %Q("#{new_resource.password}")
-      end
-      %Q(new_ssh_launcher(["#{new_resource.ssh_host}", #{new_resource.ssh_port}, "#{new_resource.ssh_user}", #{password},
-                           "#{new_resource.ssh_private_key}", "#{new_resource.jvm_options}"] as Object[]))
     end
   end
 

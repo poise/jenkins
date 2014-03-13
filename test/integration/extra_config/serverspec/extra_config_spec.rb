@@ -28,6 +28,7 @@ describe file('/var/lib/jenkins/config.xml') do
   its(:content) { should include('<!-- Extra config -->') }
   its(:content) { should include('<string>job1</string>') }
   its(:content) { should include('<string>job2</string>') }
+  its(:content) { should include('<name>teapot</name>') }
 end
 
 describe file('/var/lib/jenkins/credentials.xml') do

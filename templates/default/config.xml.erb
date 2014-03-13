@@ -1,8 +1,13 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <hudson>
-  <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsConfig) }.each do |r| -%>
+  <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsConfig) && r.action != :nothing }.each do |r| -%>
   <%= r.content %>
   <%- end -%>
+  <slaves>
+    <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsNode) && r.action != :nothing }.each do |r| -%>
+    <%= r.content %>
+    <%- end -%>
+  </slaves>
   <views>
     <hudson.model.AllView>
       <owner class="hudson" reference="../../.."/>
@@ -11,7 +16,7 @@
       <filterQueue>false</filterQueue>
       <properties class="hudson.model.View$PropertyList"/>
     </hudson.model.AllView>
-    <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsView) }.each do |r| -%>
+    <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsView) && r.action != :nothing }.each do |r| -%>
     <%= r.content %>
     <%- end -%>
   </views>

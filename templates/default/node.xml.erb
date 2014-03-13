@@ -1,0 +1,19 @@
+<slave>
+  <name><%= @new_resource.node_name %></name>
+  <description><%= @new_resource.description %></description>
+  <remoteFS><%= @new_resource.path %></remoteFS>
+  <numExecutors><%= @new_resource.executors %></numExecutors>
+  <mode><%= @new_resource.mode.upcase %></mode>
+  <%- if @new_resource.availability == 'always' -%>
+  <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+  <%- else -%>
+  <retentionStrategy class="hudson.slaves.RetentionStrategy$Demand">
+    <inDemandDelay><%= @new_resource.in_demand_delay %></inDemandDelay>
+    <idleDelay><%= @new_resource.idle_delay %></idleDelay>
+  </retentionStrategy>
+  <%- end -%>
+  <launcher class="hudson.slaves.JNLPLauncher"/>
+  <label><%= @new_resource.labels.join(' ') %></label>
+  <nodeProperties/>
+  <userId>anonymous</userId>
+</slave>

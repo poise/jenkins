@@ -1,7 +1,7 @@
 #
 # Author:: Noah Kantrowitz <noah@coderanger.net>
 #
-# Copyright 2014, Balanced, Inc.
+# Copyright 2013-2014, Balanced, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,14 +16,27 @@
 # limitations under the License.
 #
 
-jenkins_config 'extra' do
-  content '<!-- Extra config -->'
+require 'serverspec'
+include Serverspec::Helper::Exec
+include Serverspec::Helper::DetectOS
+
+describe port(8080) do
+  it { should be_listening }
 end
 
-jenkins_view 'extra' do
-  jobs %w{job1 job2}
+describe file('/home/jenkins') do
+  it { should be_a_directory }
 end
 
-jenkins_node 'teapot' do
-  path '/tmp/teapot'
+describe file('/var/lib/jenkins/config.xml') do
+  its(:content) { should include('<name>teapot</name>') }
+  its(:content) { should include('<remoteFS>/home/jenkins</remoteFS>') }
+end
+
+describe file('/etc/service/jenkins-slave-teapot') do
+  it { should be_a_directory }
+end
+
+describe process('java -jar /home/jenkins/slave.jar') do
+  it { should be_running }
 end

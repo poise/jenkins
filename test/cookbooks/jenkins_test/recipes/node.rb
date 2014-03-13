@@ -16,14 +16,6 @@
 # limitations under the License.
 #
 
-jenkins_config 'extra' do
-  content '<!-- Extra config -->'
-end
-
-jenkins_view 'extra' do
-  jobs %w{job1 job2}
-end
-
 jenkins_node 'teapot' do
-  path '/tmp/teapot'
+  action [:enable, :install]
 end

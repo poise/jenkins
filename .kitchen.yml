@@ -25,8 +25,10 @@ suites:
   attributes:
     jenkins:
       enable_proxy: false
-# - name: default-source-nginx
-#   run_list:
-#   - recipe[apt]
-#   - recipe[nginx]
-#   - recipe[jenkins]
+- name: node
+  run_list:
+  - recipe[jenkins]
+  - recipe[jenkins_test::node]
+  attributes:
+    jenkins:
+      enable_proxy: false
