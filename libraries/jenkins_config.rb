@@ -31,7 +31,8 @@ class Chef
     include Poise
 
     def action_enable
-      # This space left intentionally blank
+      # Force the configs to regenerate
+      new_resource.parent.run_action(:configure)
     end
   end
 end

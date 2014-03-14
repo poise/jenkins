@@ -78,7 +78,7 @@ end
 class Chef
   class Resource::JenkinsNode < Resource
     include Poise(parent: Jenkins, parent_optional: true)
-    actions(:create, :delete, :connect, :disconnect, :online, :offline)
+    actions(:install)
 
     attribute(:node_name, kind_of: String, default: lazy { name.split('::').last })
     attribute(:path, kind_of: String, default: lazy { node['jenkins']['node']['home'] })
@@ -124,6 +124,8 @@ class Chef
           return elem.text
         end
       end
+    rescue RestClient::Exception
+      raise "Node not yet registered"
     end
 
     def after_created
@@ -174,56 +176,16 @@ class Chef
     include Poise
     attr_accessor :jnlp_secret
 
-    def action_create
+    def action_install
       include_recipe 'java'
       converge_by("create Jenkins node #{new_resource.node_name} at #{new_resource.path}") do
+        save_node_data
         notifying_block do
           create_group
           create_user
           create_directory
         end
-        configure_jenkins_node
         create_slave
-      end
-    end
-
-    def action_delete
-      converge_by("delete Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          delete_node
-        end
-      end
-    end
-
-    def action_connect
-      converge_by("connect Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          connect_node
-        end
-      end
-    end
-
-    def action_disconnect
-      converge_by("disconnect Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          delete_node
-        end
-      end
-    end
-
-    def action_online
-      converge_by("online Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          online_node
-        end
-      end
-    end
-
-    def action_offline
-      converge_by("offline Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          offline_node
-        end
       end
     end
 
@@ -249,62 +211,6 @@ class Chef
       directory new_resource.path do
         owner new_resource.user
         group new_resource.group
-      end
-    end
-
-    def launcher_data
-      {'stapler-class' => 'hudson.slaves.JNLPLauncher'}
-    end
-
-    def configure_jenkins_node
-      node_properties = {
-        'stapler-class-bag' => 'true',
-      }
-      if new_resource.env && !new_resource.env.empty?
-        node_properties['hudson-slaves-EnvironmentVariablesNodeProperty'] = {
-          'env' => new_resource.env.map{|key, value| {'key' => key, 'value' => value}},
-        }
-      end
-
-      retention_strategy = if new_resource.availability == 'always'
-        {'stapler-class' => 'hudson.slaves.RetentionStrategy$Always'}
-      else
-        {
-          'stapler-class' => 'hudson.slaves.RetentionStrategy$Demand',
-          'inDemandDelay' => new_resource.in_demand_delay.to_s,
-          'idleDelay' => new_resource.idle_delay.to_s,
-        }
-      end
-
-      node_data = {
-        "name" => new_resource.node_name,
-        "nodeDescription" => new_resource.description,
-        "numExecutors" => new_resource.executors.to_s,
-        "remoteFS" => new_resource.path,
-        "labelString" => new_resource.labels.join(' '),
-        "mode" => new_resource.mode.upcase,
-        "type" => "hudson.slaves.DumbSlave$DescriptorImpl",
-        "retentionStrategy" => retention_strategy,
-        "nodeProperties" => node_properties,
-        "launcher" => launcher_data, # This is a method on the provider so subclasses can override
-      }
-
-      begin
-        api.get("/computer/#{new_resource.node_name}")
-        exists = true
-      rescue RestClient::ResourceNotFound
-        exists = false
-      end
-
-      begin
-        if exists
-          # Update existing node data
-          api.post("/computer/#{new_resource.node_name}/configSubmit", json: node_data.to_json)
-        else
-          api.post('/computer/doCreateItem', name: new_resource.node_name, type: 'hudson.slaves.DumbSlave$DescriptorImpl', json: node_data.to_json)
-        end
-      rescue RestClient::Found
-        # This space left intentionally blank
       end
     end
 
@@ -338,39 +244,23 @@ class Chef
       service_resource
     end
 
-    # All this jenkins_cli stuff won't work against authenticated servers
-    def delete_node
-      jenkins_cli "delete-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
+    def save_node_data
+      # Store the data back to the chef-server so we can reconstitute it later
+      data = %w{node_name description path executors mode availability
+        in_demand_delay idle_delay labels}.inject({}) do |memo, key|
+        memo[key] = new_resource.send(key)
+        memo
       end
-    end
-
-    def connect_node
-      jenkins_cli "connect-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def disconnect_node
-      jenkins_cli "disconnect-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def online_node
-      jenkins_cli "online-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
-      end
-    end
-
-    def offline_node
-      jenkins_cli "offline-node #{new_resource.node_name}" do
-        url new_resource.server_url
-        path new_resource.path
+      if Chef::Config[:solo]
+        # No server, so cram it somewhere just in case
+        node.set['jenkins']['nodes'][new_resource.node_name] = data
+      else
+        node_data = chef_server_rest.get_rest("nodes/#{node.name}")
+        node_data['normal'] ||= {}
+        node_data['normal']['jenkins'] ||= {}
+        node_data['normal']['jenkins']['nodes'] ||= {}
+        node_data['normal']['jenkins']['nodes'][new_resource.node_name] = data
+        chef_server_rest.put_rest("nodes/#{node.name}", node_data)
       end
     end
   end
@@ -408,16 +298,6 @@ class Chef
 
     def create_slave
       # SSH has no explicit slave service
-    end
-
-    def launcher_groovy
-      password = if new_resource.password.nil?
-        'null'
-      else
-        %Q("#{new_resource.password}")
-      end
-      %Q(new_ssh_launcher(["#{new_resource.ssh_host}", #{new_resource.ssh_port}, "#{new_resource.ssh_user}", #{password},
-                           "#{new_resource.ssh_private_key}", "#{new_resource.jvm_options}"] as Object[]))
     end
   end
 

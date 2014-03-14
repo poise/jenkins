@@ -16,14 +16,11 @@
 # limitations under the License.
 #
 
-jenkins_config 'extra' do
-  content '<!-- Extra config -->'
+# Force a restart so the node config is loaded
+ruby_block 'restart-jenkins' do
+  block do
+    resources("jenkins[#{node['jenkins']['server']['home']}]").run_action(:restart)
+  end
 end
 
-jenkins_view 'extra' do
-  jobs %w{job1 job2}
-end
-
-jenkins_node 'teapot' do
-  path '/tmp/teapot'
-end
+jenkins_node 'teapot'
