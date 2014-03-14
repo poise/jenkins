@@ -16,7 +16,7 @@ GRAPH
   build-essential (1.4.4)
   iptables (0.12.0)
   java (1.20.0)
-  jenkins (99.1.11)
+  jenkins (99.1.12)
     apt (>= 0.0.0)
     java (>= 0.0.0)
     partial_search (>= 0.0.0)
