@@ -6,7 +6,7 @@
   <properties class="hudson.model.View$PropertyList"/>
   <jobNames>
     <comparator class="hudson.util.CaseInsensitiveComparator"/>
-    <%- @new_resource.jobs.each do |job| -%>
+    <%- @new_resource.jobs.sort.each do |job| # No really, if they aren't sorted this won't load -%>
     <string><%= job %></string>
     <%- end -%>
   </jobNames>
