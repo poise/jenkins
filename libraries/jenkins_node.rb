@@ -78,9 +78,8 @@ end
 class Chef
   class Resource::JenkinsNode < Resource
     include Poise(parent: Jenkins, parent_optional: true)
-    actions(:enable, :install, :uninstall)
+    actions(:install)
 
-    attribute('', template: true, default_source: 'node.xml.erb')
     attribute(:node_name, kind_of: String, default: lazy { name.split('::').last })
     attribute(:path, kind_of: String, default: lazy { node['jenkins']['node']['home'] })
     attribute(:log_path, kind_of: String, default: lazy { node['jenkins']['node']['log_dir'] })
@@ -105,13 +104,6 @@ class Chef
     # Not making a new subclass just for this since frequent overrides seem unlikely (famous last words)
     attribute(:winsw_url, kind_of: String, default: lazy { node['jenkins']['node']['winsw_url'] })
 
-    def initialize(*args)
-      super
-      if @action == :enable && !parent
-        @action = :install # If we don't have a parent, make install the default
-      end
-    end
-
     def slave_jar
       ::File.join(path, 'slave.jar')
     end
@@ -132,6 +124,8 @@ class Chef
           return elem.text
         end
       end
+    rescue RestClient::Exception
+      raise "Node not yet registered"
     end
 
     def after_created
@@ -182,27 +176,16 @@ class Chef
     include Poise
     attr_accessor :jnlp_secret
 
-    def action_enable
-      raise "Cannot enable the node without a parent reference, maybe you meant action :install?" unless new_resource.parent
-    end
-
     def action_install
       include_recipe 'java'
       converge_by("create Jenkins node #{new_resource.node_name} at #{new_resource.path}") do
+        save_node_data
         notifying_block do
           create_group
           create_user
           create_directory
         end
         create_slave
-      end
-    end
-
-    def action_uninstall
-      converge_by("delete Jenkins node #{new_resource.node_name}") do
-        notifying_block do
-          raise NotImplementedError
-        end
       end
     end
 
@@ -259,6 +242,26 @@ class Chef
 
     def configure_service
       service_resource
+    end
+
+    def save_node_data
+      # Store the data back to the chef-server so we can reconstitute it later
+      data = %w{node_name description path executors mode availability
+        in_demand_delay idle_delay labels}.inject({}) do |memo, key|
+        memo[key] = new_resource.send(key)
+        memo
+      end
+      if Chef::Config[:solo]
+        # No server, so cram it somewhere just in case
+        node.set['jenkins']['nodes'][new_resource.node_name] = data
+      else
+        node_data = chef_server_rest.get_rest("nodes/#{node.name}")
+        node_data['normal'] ||= {}
+        node_data['normal']['jenkins'] ||= {}
+        node_data['normal']['jenkins']['nodes'] ||= {}
+        node_data['normal']['jenkins']['nodes'][new_resource.node_name] = data
+        chef_server_rest.put_rest("nodes/#{node.name}", node_data)
+      end
     end
   end
 

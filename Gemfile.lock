@@ -1,6 +1,6 @@
 GIT
   remote: git://github.com/berkshelf/berkshelf.git
-  revision: 38ef8df6724f2ffb79100540457ea3a6ecf53022
+  revision: 28a3bc9bcfb557ffa00cd033e9f2ccb18a31c3f4
   specs:
     berkshelf (3.0.0.beta7)
       addressable (~> 2.3.4)
@@ -18,7 +18,7 @@ GIT
 
 GIT
   remote: git://github.com/berkshelf/vagrant-berkshelf.git
-  revision: cd0d2bf9af2ce6b80bed1bcbb06ccd77e9c01276
+  revision: 876d1cf48a6062174364dc78358bf8a7e3525702
   specs:
     vagrant-berkshelf (1.4.0.dev1)
       berkshelf (>= 3.0.0.beta7)
@@ -171,7 +171,7 @@ GEM
     sawyer (0.5.3)
       addressable (~> 2.3.5)
       faraday (~> 0.8, < 0.10)
-    slop (3.4.7)
+    slop (3.5.0)
     solve (0.8.2)
     systemu (2.5.2)
     test-kitchen (1.2.1)
@@ -185,7 +185,7 @@ GEM
     treetop (1.4.15)
       polyglot
       polyglot (>= 0.3.1)
-    vagrant-omnibus (1.3.0)
+    vagrant-omnibus (1.3.1)
     vagrant-wrapper (1.2.1.1)
     varia_model (0.3.2)
       buff-extensions (~> 0.2)

@@ -30,6 +30,7 @@ end
 
 describe file('/var/lib/jenkins/config.xml') do
   its(:content) { should include('<name>teapot</name>') }
+  its(:content) { should include('<label>iama teapot</label>') }
   its(:content) { should include('<remoteFS>/home/jenkins</remoteFS>') }
 end
 

@@ -4,8 +4,8 @@
   <%= r.content %>
   <%- end -%>
   <slaves>
-    <%- @new_resource.subresources.select{|r| r.is_a?(Chef::Resource::JenkinsNode) && r.action != :nothing }.each do |r| -%>
-    <%= r.content %>
+    <%- @new_resource.nodes.each do |name, data| -%>
+    <%= render('node.xml.erb', variables: data.merge(name: name)) %>
     <%- end -%>
   </slaves>
   <views>

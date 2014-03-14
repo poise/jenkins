@@ -16,6 +16,11 @@
 # limitations under the License.
 #
 
-jenkins_node 'teapot' do
-  action [:enable, :install]
+# Force a restart so the node config is loaded
+ruby_block 'restart-jenkins' do
+  block do
+    resources("jenkins[#{node['jenkins']['server']['home']}]").run_action(:restart)
+  end
 end
+
+jenkins_node 'teapot'

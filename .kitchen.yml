@@ -32,3 +32,10 @@ suites:
   attributes:
     jenkins:
       enable_proxy: false
+      server:
+        nodes:
+          teapot:
+            path: /home/jenkins
+            labels:
+            - iama
+            - teapot
