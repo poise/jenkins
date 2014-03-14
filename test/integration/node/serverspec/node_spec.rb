@@ -24,13 +24,20 @@ describe port(8080) do
   it { should be_listening }
 end
 
-describe file('/var/lib/jenkins/config.xml') do
-  its(:content) { should include('<!-- Extra config -->') }
-  its(:content) { should include('<string>job1</string>') }
-  its(:content) { should include('<string>job2</string>') }
-  its(:content) { should include('<name>teapot</name>') }
+describe file('/home/jenkins') do
+  it { should be_a_directory }
 end
 
-describe file('/var/lib/jenkins/credentials.xml') do
-  it { should be_a_file }
+describe file('/var/lib/jenkins/config.xml') do
+  its(:content) { should include('<name>teapot</name>') }
+  its(:content) { should include('<label>iama teapot</label>') }
+  its(:content) { should include('<remoteFS>/home/jenkins</remoteFS>') }
+end
+
+describe file('/etc/service/jenkins-slave-teapot') do
+  it { should be_a_directory }
+end
+
+describe process('java -jar /home/jenkins/slave.jar') do
+  it { should be_running }
 end

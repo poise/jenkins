@@ -1,0 +1,19 @@
+<slave>
+  <name><%= @node_name || @name %></name>
+  <description><%= @description %></description>
+  <remoteFS><%= @path %></remoteFS>
+  <numExecutors><%= @executors || 1%></numExecutors>
+  <mode><%= (@mode || 'normal').upcase %></mode>
+  <%- if @availability == 'always' || !@availability -%>
+  <retentionStrategy class="hudson.slaves.RetentionStrategy$Always"/>
+  <%- else -%>
+  <retentionStrategy class="hudson.slaves.RetentionStrategy$Demand">
+    <inDemandDelay><%= @in_demand_delay || 1 %></inDemandDelay>
+    <idleDelay><%= @idle_delay || 1 %></idleDelay>
+  </retentionStrategy>
+  <%- end -%>
+  <launcher class="hudson.slaves.JNLPLauncher"/>
+  <label><%= Array(@labels || []).join(' ') %></label>
+  <nodeProperties/>
+  <userId>anonymous</userId>
+</slave>

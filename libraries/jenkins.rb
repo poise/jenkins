@@ -36,7 +36,7 @@ class Chef
   class Resource::Jenkins < Resource
     include Poise(container: true)
     include JenkinsUtils
-    actions(:install, :uninstall, :restart, :wait_until_up)
+    actions(:install, :uninstall, :restart, :wait_until_up, :configure)
 
     attribute(:path, kind_of: String, name_attribute: true)
     def version(arg=nil)
@@ -69,6 +69,7 @@ class Chef
     attribute(:port, kind_of: [String, Integer], default: lazy { node['jenkins']['server']['port'] })
     attribute(:url, kind_of: String, default: lazy { node['jenkins']['server']['url'] || "http://#{host}:#{port}" })
     attribute(:slave_agent_port, default: lazy { node['jenkins']['server']['slave_agent_port'] })
+    attribute(:nodes, kind_of: Array, default: lazy { node['jenkins']['server']['nodes'].empty? ? search_for_nodes : node['jenkins']['server']['nodes']})
     # Config template paramers
     attribute(:config, template: true, default_source: 'config.xml.erb')
     attribute(:credentials, template: true, default_source: 'credentials.xml.erb')
@@ -120,6 +121,16 @@ class Chef
 
     def sub_resource_name(method_symbol)
       :"jenkins_#{method_symbol}"
+    end
+
+    def search_for_nodes
+      nodes = {}
+      partial_search('nodes', "chef_environment:#{node.chef_environment}", keys: {
+        nodes: ['jenkins', 'nodes'],
+      }) do |n|
+        nodes.update(n['nodes']) if n['nodes']
+      end
+      nodes
     end
 
   end
@@ -181,6 +192,13 @@ class Chef
       until endpoint_responding?
         sleep 1
         Chef::Log.debug('.')
+      end
+    end
+
+    def action_configure
+      notifying_block do
+        write_config
+        write_credentials
       end
     end
 

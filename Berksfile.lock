@@ -3,13 +3,14 @@ DEPENDENCIES
   apt
   jenkins
     path: .
+    metadata: true
   jenkins_test
     path: ./test/cookbooks/jenkins_test
   nginx
 
 GRAPH
   apache2 (1.8.14)
-  apt (2.3.4)
+  apt (2.3.8)
   bluepill (2.3.1)
     rsyslog (>= 0.0.0)
   build-essential (1.4.4)
@@ -18,13 +19,14 @@ GRAPH
   jenkins (99.1.11)
     apt (>= 0.0.0)
     java (>= 0.0.0)
+    partial_search (>= 0.0.0)
     poise (~> 1.0.2)
     runit (>= 1.0.0)
     yum (>= 0.0.0)
   jenkins_test (0.0.0)
     jenkins (>= 0.0.0)
   logrotate (1.5.0)
-  nginx (2.2.0)
+  nginx (2.4.2)
     apt (~> 2.2)
     bluepill (~> 2.3)
     build-essential (~> 1.4)
@@ -34,12 +36,13 @@ GRAPH
     yum-epel (>= 0.0.0)
   ohai (1.1.12)
   pacman (1.1.1)
-  poise (1.0.6)
+  partial_search (1.0.8)
+  poise (1.0.8)
   rsyslog (1.12.2)
-  runit (1.5.8)
+  runit (1.5.10)
     build-essential (>= 0.0.0)
     yum (~> 3.0)
     yum-epel (>= 0.0.0)
-  yum (3.1.2)
+  yum (3.1.4)
   yum-epel (0.3.4)
     yum (~> 3.0)
