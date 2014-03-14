@@ -251,15 +251,11 @@ class Chef
         memo[key] = new_resource.send(key)
         memo
       end
-      if Chef::Config[:solo]
-        # No server, so cram it somewhere just in case
-        node.set['jenkins']['nodes'][new_resource.node_name] = data
-      else
+      node.set['jenkins']['nodes'][new_resource.node_name] = data
+      unless Chef::Config[:solo]
+        # Save this now as well in case the run fails
         node_data = node.chef_server_rest.get_rest("nodes/#{node.name}")
-        node_data['normal'] ||= {}
-        node_data['normal']['jenkins'] ||= {}
-        node_data['normal']['jenkins']['nodes'] ||= {}
-        node_data['normal']['jenkins']['nodes'][new_resource.node_name] = data
+        node_data.set['jenkins']['nodes'][new_resource.node_name] = data
         node.chef_server_rest.put_rest("nodes/#{node.name}", node_data)
       end
     end
