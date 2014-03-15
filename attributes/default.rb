@@ -41,6 +41,7 @@ default['jenkins']['server']['port'] = 8080
 default['jenkins']['server']['host'] = node['fqdn']
 default['jenkins']['server']['url'] = nil
 default['jenkins']['server']['slave_agent_port'] = :random
+default['jenkins']['server']['nodes'] = {}
 
 # Defaults values for jenkins_node resource
 # -----------------------------------------

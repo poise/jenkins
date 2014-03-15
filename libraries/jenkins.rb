@@ -125,7 +125,7 @@ class Chef
 
     def search_for_nodes
       nodes = {}
-      partial_search('nodes', "chef_environment:#{node.chef_environment}", keys: {
+      partial_search('node', "chef_environment:#{node.chef_environment}", keys: {
         nodes: ['jenkins', 'nodes'],
       }) do |n|
         nodes.update(n['nodes']) if n['nodes']
