@@ -54,7 +54,7 @@ when 'windows'
   default['jenkins']['node']['home'] = 'C:/jenkins'
   default['jenkins']['node']['log_dir'] = 'C:/jenkins'
   default['jenkins']['node']['agent_type'] = 'windows'
-  default['jenkins']['node']['service_user'] = 'LocalSystem'
+  default['jenkins']['node']['service_user'] = 'LocalSystem' # This and the password aren't used yet because windows support is unfinished.
   default['jenkins']['node']['service_user_password'] = nil
   # The native URL for this is http://repo.jenkins-ci.org/releases/com/sun/winsw/winsw/1.13/winsw-1.13-bin.exe but I want HTTPS
   default['jenkins']['node']['winsw_url'] = 'https://jenkinsci.artifactoryonline.com/jenkinsci/releases/com/sun/winsw/winsw/1.13/winsw-1.13-bin.exe'
