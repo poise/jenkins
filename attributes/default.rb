@@ -27,7 +27,6 @@ default['jenkins']['server']['update_url'] = 'https://updates.jenkins-ci.org/upd
 default['jenkins']['server']['war_url'] = 'http://mirrors.jenkins-ci.org/war/%{version}/jenkins.war'
 default['jenkins']['server']['plugin_url'] = 'http://mirrors.jenkins-ci.org/plugins/%{name}/%{version}/%{name}.hpi'
 default['jenkins']['server']['log_dir'] = '/var/log/jenkins'
-default['jenkins']['server']['service_name'] = 'jenkins'
 default['jenkins']['server']['user'] = 'jenkins'
 default['jenkins']['server']['group'] = default['jenkins']['server']['user']
 default['jenkins']['server']['home_dir_group'] = default['jenkins']['server']['user']

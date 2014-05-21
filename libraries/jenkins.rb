@@ -55,7 +55,7 @@ class Chef
       val
     end
     attribute(:log_dir, kind_of: String, default: lazy { node['jenkins']['server']['log_dir'] })
-    attribute(:service_name, kind_of: String, default: lazy { node['jenkins']['server']['service_name'] })
+    attribute(:service_name, kind_of: String, default: 'jenkins')
     attribute(:user, kind_of: String, default: lazy { node['jenkins']['server']['user'] })
     attribute(:group, kind_of: String)
     attribute(:home_dir_group, kind_of: String)
