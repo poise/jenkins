@@ -71,7 +71,6 @@ default['jenkins']['node']['description'] =
   "slave on #{node['hostname']}"
 default['jenkins']['node']['labels'] = (node['tags'] || [])
 
-default['jenkins']['node']['env'] = {}
 default['jenkins']['node']['executors'] = 1
 default['jenkins']['node']['in_demand_delay'] = 0
 default['jenkins']['node']['idle_delay'] = 1

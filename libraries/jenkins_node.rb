@@ -100,7 +100,6 @@ class Chef
     attribute(:jvm_options, kind_of: String, default: lazy { node['jenkins']['node']['jvm_options'] })
     attribute(:in_demand_delay, kind_of: Integer, default: lazy { node['jenkins']['node']['in_demand_delay'] }) # Only used when availability==demand
     attribute(:idle_delay, kind_of: Integer, default: lazy { node['jenkins']['node']['idle_delay'] }) # Only used when availability==demand
-    attribute(:env, kind_of: Hash, default: lazy { node['jenkins']['node']['env'] })
     # Not making a new subclass just for this since frequent overrides seem unlikely (famous last words)
     attribute(:winsw_url, kind_of: String, default: lazy { node['jenkins']['node']['winsw_url'] })
 
