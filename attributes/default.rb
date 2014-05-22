@@ -95,7 +95,7 @@ default['jenkins']['node']['jvm_options'] = nil
 
 # Default values for jenkins_cli resource
 # ---------------------------------------
-default['jenkins']['cli']['java_params'] = nil
+default['jenkins']['cli']['jvm_options'] = nil
 default['jenkins']['cli']['key_file'] = nil
 
 # Default values for jenkins_proxy resource
