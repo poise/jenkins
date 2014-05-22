@@ -80,8 +80,8 @@ Attributes
 * `node['jenkins']['node']['availability']` – Node availability mode. One of: `always`, `demand`. *(default: always)*
 * `node['jenkins']['node']['in_demand_delay']` – Time to wait before activating node. Only used in `demand` availability mode. *(default: 0)*
 * `node['jenkins']['node']['idle_delay']` – Time to allow the node to be idea before deactivating. Only used in `demand` availability mode. *(default: 1)*
-* `node['jenkins']['node']['jvm_options']` – Extra JVM command options.
 * `node['jenkins']['node']['mode']` – Job distribution mode. One of: `normal`, `exclusive`. *(default: normal)*
+* `node['jenkins']['node']['jvm_options']` – Extra JVM command-line options.
 
 #### SSH node attributes
 
@@ -99,3 +99,31 @@ These only apply if using the `ssh` builder type.
 These only apply if using the `windows` builder type.
 
 * `node['jenkins']['node']['winsw_url']` – Download URL for the winsw service helper program. *(default: https://jenkinsci.artifactoryonline.com/jenkinsci/releases/com/sun/winsw/winsw/1.13/winsw-1.13-bin.exe)*
+
+### CLI attributes
+
+* `node['jenkins']['cli']['key_file']` – SSH private key for jenkins-cli.
+* `node['jenkins']['cli']['jvm_options']` – Extra JVM command-line options.
+
+### Proxy attributes
+
+* `node['jenkins']['proxy']['listen_ports']` – HTTP listen ports. *(default: 80)*
+* `node['jenkins']['proxy']['hostname']` – Hostname for the proxy vhost. *(default: node['fqdn'])*
+* `node['jenkins']['proxy']['ssl_enabled']` – Enable HTTPS proxy. *(default: false)*
+* `node['jenkins']['proxy']['ssl_redirect_http']` – Redirect HTTP requests to HTTPS. Only applies if HTTPS is enabled. *(default: true)*
+* `node['jenkins']['proxy']['ssl_listen_ports']` – HTTPS listen ports. *(default: 443)*
+* `node['jenkins']['proxy']['ssl_path']` – Base path for TLS data. *(default: node['jenkins']['server']['home']/ssl)*
+* `node['jenkins']['proxy']['cert_path']` – Path to TLS certificate. *(default: node['jenkins']['proxy']['ssl_path']}/jenkins.pem)*
+* `node['jenkins']['proxy']['key_path']` – Path to TLS key. *(default: node['jenkins']['proxy']['ssl_path']}/jenkins.key)*
+* `node['jenkins']['proxy']['provider']` – Proxy implementation provider. One of: `apache2`, `nginx`. *(default: auto-detect)*
+
+Recipes
+-------
+
+### default
+
+The default recipe (`recipe[jenkins]`) installs a Jenkins server and optionally
+an HTTPS proxy server.
+
+
+
