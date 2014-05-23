@@ -125,5 +125,146 @@ Recipes
 The default recipe (`recipe[jenkins]`) installs a Jenkins server and optionally
 an HTTPS proxy server.
 
+Resources
+---------
 
+### jenkins
+
+The `jenkins` resource installs and configures a Jenkins server using the
+default WAR distribution.
+
+```ruby
+jenkins '/srv/jenkins' do
+  user 'ci'
+  url 'https://ci.example.com/'
+end
+```
+
+*TODO: Fill this in. In the interim, see the Attributes section.*
+
+### jenkins_config
+
+The `jenkins_config` resource adds a section of configuration to the Jenkins
+config.xml file. It is a subresource of `jenkins`.
+
+```ruby
+jenkins_config 'name' do
+  source 'myconfig.xml.erb'
+end
+```
+
+* `config_name` – Name of the snippet. *(name_attribute)*
+* `''` – Configuration template. *([template](https://github.com/poise/poise#template-content), required)*
+
+### jenkins_job
+
+The `jenkins_job` resource creates a Jenkins build job. It is a subresource of
+`jenkins`.
+
+```ruby
+jenkins_job 'name' do
+  source 'myjob.xml.erb'
+end
+```
+
+* `job_name` – Name of the job. *(name_attribute)*
+* `''` – Job template. *([template](https://github.com/poise/poise#template-content), required)*
+
+### jenkins_plugin
+
+The `jenkins_plugin` resource installs and enables a Jenkins plugin. It is a
+subresource of `jenkins`.
+
+Unfortunately due to issues with the Jenkins plugin distribution system, it is
+not possible to safely install anything but the latest version of a plugin. As
+such, this cookbook does not allow setting a version on a plugin.
+
+```ruby
+jenkins_plugin 'git'
+```
+
+* `plugin_name` – Name of the plugin. *(name_attribute)*
+* `url` – URL template for the download URL. *(default: node['jenkins']['server']['plugin_url'])*
+
+### jenkins_view
+
+The `jenkins_view` resource creates a Jenkins view. These are the tabs of jobs
+on the main homepage. It is a subresource of `jenkins`.
+
+```ruby
+jenkins_view 'name' do
+  jobs %w{myjob otherjob}
+end
+```
+
+* `view_name` – Name of the view. *(name_attribute)*
+* `''` – View template. *([template](https://github.com/poise/poise#template-content), default_source: view.xml.erb)*
+* `jobs` – Array of jobs to include in the view.
+
+### jenkins_node
+
+The `jenkins_node` resource installs and configures a Jenkins builder node.
+Three types are available: `jnlp`, `ssh`, and `windows`. It is optionally a
+subresource of `jenkins`.
+
+**WARNING: The `windows` type is incomplete and the `ssh` type is untested.***
+
+```ruby
+jenkins_node 'name' do
+  path '/srv/jenkins'
+  user 'ci'
+end
+```
+
+*TODO: Fill this in. In the interim, see the Attributes section.*
+
+### jenkins_execute
+
+The `jenkins_execute` resource runs a command and passes the output to a block.
+It is optionally a subresource of `jenkins`.
+
+It is rarely used, please consult the source code for more information.
+
+### jenkins_cli
+
+The `jenkins_cli` resource runs a command using the `jenkins-cli.jar` command
+line tool.
+
+```ruby
+jenkins_cli 'disable-job myjob' do
+  key_file '/srv/ci/cli.pem'
+end
+```
+
+* `command` – Command to run. *(name_attribute)*
+* `timeout` – Command timeout. *(default: no timeout)*
+* `block` – An optional ruby code block that gets passed the command output.
+* `url` – Jenkins server URL. *(default: parent.url)*
+* `path` – Path to Jenkins data directory. *(default: parent.path)*
+* `java_home` – Path to Java home. *(default: node['jenkins']['java_home'] or node['java']['java_home'])*
+* `jvm_options` – Extra Java command line options. *(default: node['jenkins']['cli']['jvm_options'])*
+* `key_file` – SSH private key for authentication. *(default: node['jenkins']['cli']['key_file'])*
+
+License
+-------
+
+Copyright 2010, VMWare, Inc.
+
+Copyright 2012, Opscode, Inc.
+
+Copyright 2013, Youscribe.
+
+Copyright 2013-2014, Balanced, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
