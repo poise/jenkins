@@ -31,6 +31,7 @@ class Chef
 
     def after_created
       super
+      # TODO: Replace these with required:true in the attribute definition.
       raise "URL is require" unless url
       raise "Path is required" unless path
     end
