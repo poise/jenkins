@@ -124,6 +124,7 @@ class Chef
     end
 
     def search_for_nodes
+      return {} if Chef::Config[:solo] # FIXME: Should allow for search in solo if a key is enabled.
       nodes = {}
       partial_search('node', "chef_environment:#{node.chef_environment}", keys: {
         nodes: ['jenkins', 'nodes'],
